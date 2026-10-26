@@ -47,45 +47,77 @@ class _ScrambledPinPadState extends State<ScrambledPinPad> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.shuffle_rounded,
-              size: 14,
-              color: AppTheme.emeraldSecure,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.emeraldSecure.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: AppTheme.emeraldSecure.withValues(alpha: 0.35),
             ),
-            const SizedBox(width: 6),
-            Text(
-              'Auto-scrambled keypad (anti-spyware)',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.65),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.shuffle_rounded,
+                size: 14,
+                color: AppTheme.emeraldSecure,
               ),
-            ),
-          ],
+              SizedBox(width: 6),
+              Text(
+                'CSPRNG Auto-Scrambled Keypad • Anti-Spyware',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.emeraldSecure,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         GridView.count(
           crossAxisCount: 3,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 2.2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 2.15,
           children: [
             for (var i = 0; i < 9; i++)
               _buildDigitButton(_digits[i].toString()),
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppTheme.obsidianDeep,
+                foregroundColor: AppTheme.cyberCyan,
+                side: BorderSide(
+                  color: AppTheme.cyberCyan.withValues(alpha: 0.35),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () {
                 _scrambleDigits();
                 widget.onReshuffle();
               },
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Shuffle', style: TextStyle(fontSize: 11)),
+              label: const Text('Shuffle', style: TextStyle(fontSize: 11.5)),
             ),
             _buildDigitButton(_digits[9].toString()),
             OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppTheme.obsidianDeep,
+                foregroundColor: AppTheme.amberWarning,
+                side: BorderSide(
+                  color: AppTheme.amberWarning.withValues(alpha: 0.35),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: widget.onBackspace,
               child: const Icon(Icons.backspace_outlined, size: 18),
             ),
@@ -99,15 +131,19 @@ class _ScrambledPinPadState extends State<ScrambledPinPad> {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppTheme.surfaceElevated,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        foregroundColor: AppTheme.textPrimary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppTheme.borderHighlight),
+        ),
       ),
       onPressed: () => widget.onDigitPressed(digit),
       child: Text(
         digit,
         style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+          fontSize: 19,
+          fontWeight: FontWeight.w800,
           fontFamily: 'monospace',
         ),
       ),

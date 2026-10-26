@@ -80,36 +80,67 @@ class _LockScreenViewState extends State<LockScreenView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildZeroNetworkTrustHeader(posture.isCompromised),
-                      const SizedBox(height: 28),
-                      const Icon(
-                        Icons.enhanced_encryption_rounded,
-                        size: 56,
-                        color: AppTheme.emeraldSecure,
+                      const SizedBox(height: 24),
+                      Center(
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.surfaceCard,
+                            border: Border.all(
+                              color: AppTheme.emeraldSecure
+                                  .withValues(alpha: 0.45),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.emeraldSecure
+                                    .withValues(alpha: 0.16),
+                                blurRadius: 24,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.enhanced_encryption_rounded,
+                            size: 36,
+                            color: AppTheme.emeraldSecure,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 14),
                       const Text(
                         'SuperXSecret',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
+                          letterSpacing: -0.3,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
+                      const Text(
                         '100% Offline • Zero-Knowledge • Dual-Vault',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: Colors.white.withValues(alpha: 0.65),
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 24),
                       if (posture.isCompromised) _buildCompromisedDeviceBanner(),
                       Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: const BorderSide(
+                            color: AppTheme.borderHighlight,
+                          ),
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(22),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -117,32 +148,58 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    _isConfiguringDualSlot
-                                        ? 'Set Passwords'
-                                        : 'Unlock Vault',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        _isConfiguringDualSlot
+                                            ? Icons.tune_rounded
+                                            : Icons.lock_person_rounded,
+                                        size: 18,
+                                        color: AppTheme.emeraldSecure,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _isConfiguringDualSlot
+                                            ? 'Set Passwords'
+                                            : 'Unlock Vault',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  TextButton(
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppTheme.cyberCyan,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
                                     onPressed: () {
                                       setState(() {
                                         _isConfiguringDualSlot =
                                             !_isConfiguringDualSlot;
                                       });
                                     },
-                                    child: Text(
+                                    icon: Icon(
+                                      _isConfiguringDualSlot
+                                          ? Icons.login_rounded
+                                          : Icons.layers_rounded,
+                                      size: 15,
+                                    ),
+                                    label: Text(
                                       _isConfiguringDualSlot
                                           ? 'Unlock'
                                           : 'Set Passwords',
-                                      style: const TextStyle(fontSize: 12),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 14),
                               TextField(
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
@@ -191,34 +248,50 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 ),
                               ],
                               if (widget.viewModel.errorMessage != null) ...[
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 14),
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: AppTheme.crimsonAlert
                                         .withValues(alpha: 0.14),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
                                       color: AppTheme.crimsonAlert
                                           .withValues(alpha: 0.5),
                                     ),
                                   ),
-                                  child: Text(
-                                    widget.viewModel.errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppTheme.crimsonAlert,
-                                      fontSize: 12.5,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.error_outline_rounded,
+                                        size: 18,
+                                        color: AppTheme.crimsonAlert,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          widget.viewModel.errorMessage!,
+                                          style: const TextStyle(
+                                            color: AppTheme.crimsonAlert,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                              const SizedBox(height: 18),
+                              const SizedBox(height: 20),
                               FilledButton.icon(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.emeraldSecure,
-                                  foregroundColor: Colors.black,
+                                  foregroundColor: const Color(0xFF04130D),
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 onPressed: widget.viewModel.isLoading
@@ -232,7 +305,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                                       ? 'Save Passwords'
                                       : 'Unlock',
                                   style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),

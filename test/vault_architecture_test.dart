@@ -123,7 +123,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('New Topic'), findsOneWidget);
+      expect(find.text('New'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.text('Import File'), findsOneWidget);
       expect(find.text('View'), findsWidgets);
       expect(find.text('Share'), findsWidgets);

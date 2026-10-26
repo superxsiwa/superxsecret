@@ -42,7 +42,7 @@ When modifying or extending any code in this repository, every agent MUST enforc
      `enableIMEPersonalizedLearning: false`, `autocorrect: false`, `enableSuggestions: false`.
    - Decrypt secret payloads **Just-In-Time (JIT)** only when the user taps Reveal, and auto-zeroize after **15 seconds**.
    - Clipboard copies must go through `OsHardeningService.copySensitiveClipboard` (`EXTRA_IS_SENSITIVE` on Android 13+, `.localOnly: true` + `.expirationDate` on iOS) with a **30-second auto-wipe timer**.
-   - **Short & Simple UI Copy:** Keep all item names, captions, labels, and button text in the app short, clean, and easy to read (e.g., `Unlock`, `New`, `Import`, `Share`, `View`, `Copy`, `Lock`, `Topic`, `Secret Text`). Avoid long technical sentences on UI controls.
+   - **Short & Simple UI Copy & Dashboard Control Layout:** Keep all item names, captions, labels, and button text in the app short, clean, and easy to read (e.g., `Unlock`, `New`, `Import File`, `Share`, `View`, `Copy`, `Lock`, `Topic`, `Secret Text`). Place the `New` button above the secret list (no bottom-right floating action button), and align all card action buttons (`Share`, `View`) at the bottom center of each secret card. Avoid long technical sentences on UI controls.
 
 ---
 

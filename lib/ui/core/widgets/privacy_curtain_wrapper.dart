@@ -60,44 +60,103 @@ class _PrivacyCurtainWrapperState extends State<PrivacyCurtainWrapper>
           Positioned.fill(
             child: Material(
               color: AppTheme.obsidianBg,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.emeraldSecure.withValues(alpha: 0.12),
-                        border: Border.all(
-                          color: AppTheme.emeraldSecure.withValues(alpha: 0.4),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.9,
+                    colors: [
+                      AppTheme.emeraldSecure.withValues(alpha: 0.08),
+                      AppTheme.obsidianBg,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.surfaceCard,
+                            border: Border.all(
+                              color:
+                                  AppTheme.emeraldSecure.withValues(alpha: 0.45),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.emeraldSecure
+                                    .withValues(alpha: 0.18),
+                                blurRadius: 32,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.shield_moon_rounded,
+                            size: 56,
+                            color: AppTheme.emeraldSecure,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.shield_moon_rounded,
-                        size: 56,
-                        color: AppTheme.emeraldSecure,
-                      ),
+                        const SizedBox(height: 22),
+                        const Text(
+                          'SUPERXSECRET VAULT PROTECTED',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.6,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'App Switcher Masking & Memory Zeroization Active',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceElevated,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppTheme.borderHighlight),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.memory_rounded,
+                                size: 14,
+                                color: AppTheme.emeraldSecure,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'DEK ZEROIZED • AES-256-GCM',
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.emeraldSecure,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'SUPERXSECRET VAULT PROTECTED',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'App Switcher Masking & Memory Zeroization Active',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

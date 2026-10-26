@@ -108,16 +108,39 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 _buildActiveJitRevealCard(context),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: TextField(
-                  enableIMEPersonalizedLearning: false,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  onChanged: widget.viewModel.setSearchQuery,
-                  decoration: const InputDecoration(
-                    hintText: 'Search topic...',
-                    prefixIcon: Icon(Icons.search_rounded),
-                    isDense: true,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        onChanged: widget.viewModel.setSearchQuery,
+                        decoration: const InputDecoration(
+                          hintText: 'Search topic...',
+                          prefixIcon: Icon(Icons.search_rounded),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.emeraldSecure,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      onPressed: () => _showNewTopicDialog(context),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text(
+                        'New',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -136,16 +159,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
               ),
             ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            backgroundColor: AppTheme.emeraldSecure,
-            foregroundColor: Colors.black,
-            onPressed: () => _showNewTopicDialog(context),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text(
-              'New Topic',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
           ),
         );
       },
@@ -185,44 +198,118 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   Widget _buildSummaryCard(BuildContext context, VaultTopicSummary item) {
+    final isRevealed =
+        widget.viewModel.activeRevealedSecret?.itemUuid == item.itemUuid;
+
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: AppTheme.emeraldSecure.withValues(alpha: 0.14),
-          child: const Icon(
-            Icons.vpn_key_rounded,
-            color: AppTheme.emeraldSecure,
-          ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: isRevealed
+              ? AppTheme.emeraldSecure.withValues(alpha: 0.7)
+              : AppTheme.borderSubtle,
+          width: isRevealed ? 1.5 : 1.0,
         ),
-        title: Text(
-          item.topic,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '•••••••••••• • AES-256-GCM',
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            OutlinedButton.icon(
-              onPressed: () => _showShareSxsiDialog(context, item),
-              icon: const Icon(Icons.ios_share_rounded, size: 15),
-              label: const Text('Share', style: TextStyle(fontSize: 12)),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.emeraldSecure.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.emeraldSecure.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.vpn_key_rounded,
+                    color: AppTheme.emeraldSecure,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.topic,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15.5,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '•••••••••••• • AES-256-GCM',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceElevated,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderSubtle),
+                  ),
+                  child: const Icon(
+                    Icons.verified_user_outlined,
+                    size: 14,
+                    color: AppTheme.emeraldSecure,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            FilledButton.tonalIcon(
-              onPressed: () => widget.viewModel.revealSecretJit(item.itemUuid),
-              icon: const Icon(Icons.visibility_rounded, size: 16),
-              label: const Text('View', style: TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showShareSxsiDialog(context, item),
+                  icon: const Icon(Icons.ios_share_rounded, size: 15),
+                  label: const Text('Share', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        AppTheme.emeraldSecure.withValues(alpha: 0.16),
+                    foregroundColor: AppTheme.emeraldSecure,
+                  ),
+                  onPressed: () =>
+                      widget.viewModel.revealSecretJit(item.itemUuid),
+                  icon: const Icon(Icons.visibility_rounded, size: 16),
+                  label: const Text(
+                    'View',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -234,14 +321,22 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   Widget _buildActiveJitRevealCard(BuildContext context) {
     final secret = widget.viewModel.activeRevealedSecret!;
     final secsLeft = widget.viewModel.revealSecondsRemaining;
+    final progress = (secsLeft / 15.0).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surfaceElevated,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.emeraldSecure, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.emeraldSecure.withValues(alpha: 0.14),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -261,7 +356,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     '${secret.topic} • Auto-hide in ${secsLeft}s',
                     style: const TextStyle(
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: AppTheme.emeraldSecure,
                     ),
                   ),
@@ -274,7 +369,19 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 4,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.emeraldSecure,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           _buildSecretRow('Secret Text', secret.secretText),
         ],
       ),
@@ -413,23 +520,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableSuggestions: false,
                       decoration: const InputDecoration(
                         labelText: 'Secret Text',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          final pass =
-                              widget.viewModel.generateRandomPassword();
-                          setDialogState(() {
-                            secretCtrl.text = secretCtrl.text.isEmpty
-                                ? pass
-                                : '${secretCtrl.text}\n$pass';
-                          });
-                        },
-                        icon: const Icon(Icons.casino_outlined, size: 16),
-                        label: const Text('Gen Pass'),
                       ),
                     ),
                     if (errorMsg != null) ...[

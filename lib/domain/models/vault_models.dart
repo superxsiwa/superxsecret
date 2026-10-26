@@ -3,6 +3,7 @@
 /// Enforces separation between non-sensitive metadata (`VaultTopicSummary`)
 /// kept in list views and sensitive secrets (`DecodedTopicSecret`) decrypted
 /// Just-In-Time (JIT) for a 15-second ephemeral window.
+library;
 
 enum VaultSessionMode {
   mainVault,
@@ -31,13 +32,11 @@ class VaultTopicSummary {
   const VaultTopicSummary({
     required this.itemUuid,
     required this.topic,
-    required this.tag,
     required this.updatedAt,
   });
 
   final String itemUuid;
   final String topic;
-  final String tag;
   final DateTime updatedAt;
 }
 
@@ -45,13 +44,11 @@ class DecodedTopicSecret {
   const DecodedTopicSecret({
     required this.itemUuid,
     required this.topic,
-    required this.tag,
     required this.secretText,
   });
 
   final String itemUuid;
   final String topic;
-  final String tag;
   final String secretText;
 }
 

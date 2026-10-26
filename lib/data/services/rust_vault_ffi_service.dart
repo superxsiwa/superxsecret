@@ -23,19 +23,16 @@ class RustVaultFfiService {
     VaultTopicSummary(
       itemUuid: 'topic-main-01',
       topic: 'ProtonMail',
-      tag: 'Email',
       updatedAt: DateTime(2026, 10, 26, 7, 15),
     ),
     VaultTopicSummary(
       itemUuid: 'topic-main-02',
       topic: 'KBank Card',
-      tag: 'Bank',
       updatedAt: DateTime(2026, 10, 25, 19, 30),
     ),
     VaultTopicSummary(
       itemUuid: 'topic-main-03',
       topic: 'Crypto Seed',
-      tag: 'Crypto',
       updatedAt: DateTime(2026, 10, 20, 14, 0),
     ),
   ];
@@ -53,13 +50,11 @@ class RustVaultFfiService {
     VaultTopicSummary(
       itemUuid: 'topic-sec-01',
       topic: 'Netflix',
-      tag: 'Media',
       updatedAt: DateTime(2026, 9, 12, 10, 20),
     ),
     VaultTopicSummary(
       itemUuid: 'topic-sec-02',
       topic: 'Home Wi-Fi',
-      tag: 'Wi-Fi',
       updatedAt: DateTime(2026, 8, 4, 21, 0),
     ),
   ];
@@ -171,7 +166,6 @@ class RustVaultFfiService {
     return DecodedTopicSecret(
       itemUuid: summary.itemUuid,
       topic: summary.topic,
-      tag: summary.tag,
       secretText: secretText,
     );
   }
@@ -180,7 +174,6 @@ class RustVaultFfiService {
   /// Creates a new Topic + Secret Text item in the active vault partition.
   Future<VaultTopicSummary> createNewTopic({
     required String topic,
-    required String tag,
     required String secretText,
   }) async {
     final mode = _activeSessionMode;
@@ -188,7 +181,6 @@ class RustVaultFfiService {
       throw StateError('Vault is locked');
     }
     final cleanTopic = topic.trim();
-    final cleanTag = tag.trim().isEmpty ? 'General' : tag.trim();
     if (cleanTopic.isEmpty || secretText.trim().isEmpty) {
       throw ArgumentError('Topic and Secret Text are required');
     }
@@ -199,7 +191,6 @@ class RustVaultFfiService {
     final summary = VaultTopicSummary(
       itemUuid: uuid,
       topic: cleanTopic,
-      tag: cleanTag,
       updatedAt: DateTime.now(),
     );
 
@@ -232,7 +223,6 @@ class RustVaultFfiService {
     final decoded = await decryptPayloadJit(itemUuid);
     final payloadMap = {
       'topic': decoded.topic,
-      'tag': decoded.tag,
       'secretText': decoded.secretText,
       'exportedAt': DateTime.now().toIso8601String(),
     };
@@ -276,7 +266,6 @@ class RustVaultFfiService {
     final map = jsonDecode(utf8.decode(plainBytes)) as Map<String, dynamic>;
     return createNewTopic(
       topic: (map['topic'] as String?) ?? 'Imported Topic',
-      tag: (map['tag'] as String?) ?? 'Shared',
       secretText: (map['secretText'] as String?) ?? '',
     );
   }

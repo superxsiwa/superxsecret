@@ -10,8 +10,6 @@ class VaultViewModel extends ChangeNotifier {
   final VaultRepository _vaultRepository;
 
   List<VaultTopicSummary> _allItems = const [];
-  String? _selectedTag;
-  String? get selectedTag => _selectedTag;
 
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
@@ -32,25 +30,11 @@ class VaultViewModel extends ChangeNotifier {
 
   VaultSessionMode? get activeSessionMode => _vaultRepository.activeSessionMode;
 
-  List<String> get availableTags {
-    final set = <String>{};
-    for (final item in _allItems) {
-      if (item.tag.trim().isNotEmpty) {
-        set.add(item.tag.trim());
-      }
-    }
-    return set.toList();
-  }
-
   List<VaultTopicSummary> get filteredItems {
     return _allItems.where((item) {
-      if (_selectedTag != null && item.tag != _selectedTag) {
-        return false;
-      }
       if (_searchQuery.trim().isNotEmpty) {
         final q = _searchQuery.toLowerCase();
-        return item.topic.toLowerCase().contains(q) ||
-            item.tag.toLowerCase().contains(q);
+        return item.topic.toLowerCase().contains(q);
       }
       return true;
     }).toList();
@@ -58,11 +42,6 @@ class VaultViewModel extends ChangeNotifier {
 
   Future<void> loadVaultSummaries() async {
     _allItems = await _vaultRepository.fetchVaultSummaries();
-    notifyListeners();
-  }
-
-  void setTagFilter(String? tag) {
-    _selectedTag = tag;
     notifyListeners();
   }
 
@@ -99,15 +78,13 @@ class VaultViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Creates a new Topic + Tag + Secret Text record in the active vault.
+  /// Creates a new Topic + Secret Text record in the active vault.
   Future<VaultTopicSummary> createTopic({
     required String topic,
-    required String tag,
     required String secretText,
   }) async {
     final created = await _vaultRepository.saveTopic(
       topic: topic,
-      tag: tag,
       secretText: secretText,
     );
     await loadVaultSummaries();

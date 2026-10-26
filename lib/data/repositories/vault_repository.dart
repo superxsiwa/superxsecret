@@ -64,12 +64,10 @@ class VaultRepository {
 
   Future<VaultTopicSummary> saveTopic({
     required String topic,
-    required String tag,
     required String secretText,
   }) {
     return _rustFfiService.createNewTopic(
       topic: topic,
-      tag: tag,
       secretText: secretText,
     );
   }

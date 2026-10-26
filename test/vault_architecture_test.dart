@@ -47,12 +47,10 @@ void main() {
 
       final summary = await repository.saveTopic(
         topic: 'GitHub Recovery',
-        tag: 'Dev',
         secretText: 'ghp_OfflineZeroKnowledgeToken2026',
       );
 
       expect(summary.topic, equals('GitHub Recovery'));
-      expect(summary.tag, equals('Dev'));
 
       final decoded = await repository.revealSecretPayloadJit(summary.itemUuid);
       expect(decoded.topic, equals('GitHub Recovery'));
@@ -129,6 +127,9 @@ void main() {
       expect(find.text('Import File'), findsOneWidget);
       expect(find.text('View'), findsWidgets);
       expect(find.text('Share'), findsWidgets);
+      expect(find.text('Email'), findsNothing);
+      expect(find.text('Bank'), findsNothing);
+      expect(find.text('Crypto'), findsNothing);
       expect(find.textContaining('FAKE'), findsNothing);
       expect(find.textContaining('DECOY'), findsNothing);
     });

@@ -114,13 +114,12 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   enableSuggestions: false,
                   onChanged: widget.viewModel.setSearchQuery,
                   decoration: const InputDecoration(
-                    hintText: 'Search topic or tag...',
+                    hintText: 'Search topic...',
                     prefixIcon: Icon(Icons.search_rounded),
                     isDense: true,
                   ),
                 ),
               ),
-              _buildTagFilterBar(),
               Expanded(
                 child: items.isEmpty
                     ? const Center(
@@ -185,41 +184,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
-  Widget _buildTagFilterBar() {
-    final selected = widget.viewModel.selectedTag;
-    final tags = widget.viewModel.availableTags;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          _buildFilterChip(label: 'All', tag: null, selected: selected == null),
-          for (final tag in tags) ...[
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: tag,
-              tag: tag,
-              selected: selected == tag,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required String? tag,
-    required bool selected,
-  }) {
-    return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12.5)),
-      selected: selected,
-      onSelected: (_) => widget.viewModel.setTagFilter(tag),
-    );
-  }
-
-
   Widget _buildSummaryCard(BuildContext context, VaultTopicSummary item) {
     return Card(
       child: ListTile(
@@ -231,30 +195,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             color: AppTheme.emeraldSecure,
           ),
         ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.topic,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.cyberCyan.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                item.tag,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.cyberCyan,
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          item.topic,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -315,7 +258,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${secret.topic} (${secret.tag}) • Auto-hide in ${secsLeft}s',
+                    '${secret.topic} • Auto-hide in ${secsLeft}s',
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -437,7 +380,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
 
   void _showNewTopicDialog(BuildContext context) {
     final topicCtrl = TextEditingController();
-    final tagCtrl = TextEditingController(text: 'General');
     final secretCtrl = TextEditingController();
     String? errorMsg;
 
@@ -459,17 +401,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       autocorrect: false,
                       enableSuggestions: false,
                       decoration: const InputDecoration(
-                        labelText: 'Topic Name',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: tagCtrl,
-                      enableIMEPersonalizedLearning: false,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Tag',
+                        labelText: 'Topic',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -523,7 +455,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     try {
                       await widget.viewModel.createTopic(
                         topic: topicCtrl.text,
-                        tag: tagCtrl.text,
                         secretText: secretCtrl.text,
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop();

@@ -25,7 +25,6 @@ pub enum VaultDbError {
 pub struct VaultTopicRecord {
     pub item_uuid: String,
     pub topic: String,
-    pub tag: String,
     pub updated_at_unix: i64,
     pub schema_version: u16,
 }
@@ -55,12 +54,10 @@ pub fn open_sqlcipher_connection(
         "CREATE TABLE IF NOT EXISTS vault_topics (
             item_uuid TEXT PRIMARY KEY NOT NULL,
             topic TEXT NOT NULL,
-            tag TEXT NOT NULL DEFAULT '',
             updated_at_unix INTEGER NOT NULL,
             schema_version INTEGER NOT NULL DEFAULT 1,
             encrypted_payload BLOB NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_vault_topics_tag ON vault_topics(tag);
         CREATE INDEX IF NOT EXISTS idx_vault_topics_updated ON vault_topics(updated_at_unix DESC);",
     )?;
 
@@ -80,18 +77,16 @@ pub fn upsert_vault_topic(
 
     conn.execute(
         "INSERT INTO vault_topics (
-            item_uuid, topic, tag, updated_at_unix, schema_version, encrypted_payload
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            item_uuid, topic, updated_at_unix, schema_version, encrypted_payload
+        ) VALUES (?1, ?2, ?3, ?4, ?5)
         ON CONFLICT(item_uuid) DO UPDATE SET
             topic = excluded.topic,
-            tag = excluded.tag,
             updated_at_unix = excluded.updated_at_unix,
             schema_version = excluded.schema_version,
             encrypted_payload = excluded.encrypted_payload;",
         params![
             meta.item_uuid,
             meta.topic,
-            meta.tag,
             meta.updated_at_unix,
             meta.schema_version,
             encrypted_blob
@@ -104,7 +99,7 @@ pub fn upsert_vault_topic(
 /// Lists all non-sensitive topic summaries without decrypting any `encrypted_payload` blobs!
 pub fn list_vault_summaries(conn: &Connection) -> Result<Vec<VaultTopicRecord>, VaultDbError> {
     let mut stmt = conn.prepare(
-        "SELECT item_uuid, topic, tag, updated_at_unix, schema_version
+        "SELECT item_uuid, topic, updated_at_unix, schema_version
          FROM vault_topics
          ORDER BY updated_at_unix DESC",
     )?;
@@ -113,9 +108,8 @@ pub fn list_vault_summaries(conn: &Connection) -> Result<Vec<VaultTopicRecord>, 
         Ok(VaultTopicRecord {
             item_uuid: row.get(0)?,
             topic: row.get(1)?,
-            tag: row.get(2)?,
-            updated_at_unix: row.get(3)?,
-            schema_version: row.get(4)?,
+            updated_at_unix: row.get(2)?,
+            schema_version: row.get(3)?,
         })
     })?;
 

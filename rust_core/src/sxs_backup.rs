@@ -173,7 +173,7 @@ pub fn import_from_sxs_bytes(
     decode_container_with_magic(SXS_MAGIC, backup_password, sxs_file_bytes)
 }
 
-/// Encodes a single Topic + Tag + Secret Text JSON payload into an encrypted `.sxsi` (`"SXSI"`) binary container.
+/// Encodes a single Topic + Secret Text JSON payload into an encrypted `.sxsi` (`"SXSI"`) binary container.
 pub fn export_single_item_sxsi_bytes(
     file_password: &[u8],
     topic_json_bytes: &[u8],

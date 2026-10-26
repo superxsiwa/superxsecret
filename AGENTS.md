@@ -9,8 +9,8 @@ This file serves as the persistent shared memory for all AI agents, subagents, a
 - **Product Name:** SuperXSecret
 - **Category:** 100% Offline-First, Zero-Knowledge Mobile Secret Vault (iOS & Android)
 - **Core Vault Data Model (Unified Topic + Encrypted Text):**
-  - Instead of rigid, separate schemas for Credit Cards and Logins, every vault item uses a streamlined, universal structure:
-    1. **Topic / Title** (Visible in the unlocked list & searchable metadata, plus optional Tags/Category)
+  - Instead of rigid, separate schemas or category/tag buttons (`Email`, `Bank`, `Crypto`), every vault item uses a streamlined, universal 2-field structure:
+    1. **Topic** (Short title visible in the unlocked list & searchable metadata — no category/tag buttons or badges)
     2. **Encrypted Secret Text (`encrypted_payload`)** (Free-form text encrypted via AES-256-GCM with AAD — flexible enough to store passwords, credit card details, crypto seed phrases, or private notes in one simple format)
 - **Key Differentiator (Dual-Vault Architecture):** Dual-Slot Vault Header supporting both a **Main Password (Slot A)** and a **Secondary Password (Slot B)** that opens a completely separate **Secondary Vault** (useful for work/personal separation or plausible deniability). Never display any "Fake" or "Decoy" label on the unlocked vault screen—both vaults must look 100% identical.
 - **Monetization Model:** Freemium (up to 15 items free) + One-Time "Pro Lifetime Unlock" verified 100% offline via local IPC/XPC cryptographic receipt signatures (Google Play Billing RSA / Apple StoreKit 2 JWS) inside the Rust native core.

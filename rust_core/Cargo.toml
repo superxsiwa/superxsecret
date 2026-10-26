@@ -1,0 +1,45 @@
+[package]
+name = "superxsecret_core"
+version = "0.1.0"
+edition = "2021"
+description = "Zero-Knowledge Offline Cryptography, SQLCipher & .sxs Backup Core for SuperXSecret"
+
+[lib]
+name = "superxsecret_core"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Memory-hard KDF (RFC 9106)
+argon2 = { version = "0.5", features = ["std", "zeroize"] }
+
+# Authenticated Encryption with Associated Data (AEAD)
+aes-gcm = { version = "0.10", features = ["aes", "alloc", "zeroize"] }
+chacha20poly1305 = { version = "0.10", features = ["std", "zeroize"] }
+
+# Key Derivation & Hashing (HKDF-SHA256 & HMAC for TOTP / SQLCipher)
+hkdf = "0.12"
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+
+# Cryptographically Secure PRNG
+rand = "0.8"
+
+# Deterministic Memory Zeroization (wipes secrets from RAM on drop)
+zeroize = { version = "1.8", features = ["derive", "zeroize_derive"] }
+
+# SQLCipher 4.x Bundled Encrypted SQLite Database
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+# Serialization & Compression for .sxs Encrypted Backup Container
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+

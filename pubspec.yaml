@@ -1,0 +1,22 @@
+name: superxsecret
+description: "SuperXSecret - 100% Offline-First Zero-Knowledge Password Manager & Secure Vault (Flutter + Rust FFI + SQLCipher)"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.1.3
+  flutter_rust_bridge: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+

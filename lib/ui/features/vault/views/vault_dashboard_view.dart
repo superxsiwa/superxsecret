@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../domain/models/vault_models.dart';
 import '../../../core/theme/app_theme.dart';
@@ -690,17 +691,19 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                             });
                             return;
                           }
+                          final estimatedMs = kIsWeb
+                              ? (hasExtraLock ? 3200 : 2200)
+                              : (hasExtraLock ? 1500 : 900);
                           setDialogState(() {
                             isEncoding = true;
                             errorMsg = null;
                             encodingPercent = 0.0;
-                            countdownSeconds = hasExtraLock ? 1.6 : 1.0;
+                            countdownSeconds = estimatedMs / 1000.0;
                           });
 
                           tracker = _EncodingProgressTracker(
-                            estimatedDuration: Duration(
-                              milliseconds: hasExtraLock ? 1600 : 1000,
-                            ),
+                            estimatedDuration:
+                                Duration(milliseconds: estimatedMs),
                             onUpdate: (pct, remaining) {
                               setDialogState(() {
                                 encodingPercent = pct;
@@ -1159,15 +1162,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         });
                         return;
                       }
+                      const estimatedMs = kIsWeb ? 2800 : 1200;
                       setDialogState(() {
                         isEncoding = true;
                         errorMessage = null;
                         encodingPercent = 0.0;
-                        countdownSeconds = 1.5;
+                        countdownSeconds = estimatedMs / 1000.0;
                       });
 
                       tracker = _EncodingProgressTracker(
-                        estimatedDuration: const Duration(milliseconds: 1500),
+                        estimatedDuration:
+                            const Duration(milliseconds: estimatedMs),
                         onUpdate: (pct, remaining) {
                           setDialogState(() {
                             encodingPercent = pct;
@@ -1485,16 +1490,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                             });
                             return;
                           }
+                          const estimatedMs = kIsWeb ? 1500 : 700;
                           setDialogState(() {
                             isEncoding = true;
                             errorMsg = null;
                             encodingPercent = 0.0;
-                            countdownSeconds = 1.0;
+                            countdownSeconds = estimatedMs / 1000.0;
                           });
 
                           tracker = _EncodingProgressTracker(
                             estimatedDuration:
-                                const Duration(milliseconds: 1000),
+                                const Duration(milliseconds: estimatedMs),
                             onUpdate: (pct, remaining) {
                               setDialogState(() {
                                 encodingPercent = pct;
@@ -1758,9 +1764,19 @@ class _EncodingProgressTracker {
     _timer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       final elapsedMs = _stopwatch.elapsedMilliseconds;
       final totalMs = estimatedDuration.inMilliseconds;
-      final progress = (elapsedMs / totalMs).clamp(0.0, 0.95);
-      final remainingMs = (totalMs - elapsedMs).clamp(0, totalMs);
-      onUpdate(progress, remainingMs / 1000.0);
+      double progress;
+      double remainingSeconds;
+      if (elapsedMs < totalMs) {
+        progress = (elapsedMs / totalMs) * 0.90;
+        remainingSeconds = (totalMs - elapsedMs) / 1000.0;
+      } else {
+        final overtimeMs = elapsedMs - totalMs;
+        final extra = 0.08 * (1.0 - math.exp(-overtimeMs / 1200.0));
+        progress = (0.90 + extra).clamp(0.90, 0.98);
+        remainingSeconds =
+            (0.3 * math.exp(-overtimeMs / 1200.0)).clamp(0.05, 0.4);
+      }
+      onUpdate(progress, remainingSeconds);
     });
   }
 

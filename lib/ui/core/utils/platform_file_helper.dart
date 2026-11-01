@@ -24,3 +24,4 @@ abstract final class PlatformFileHelper {
     return impl.pickFileBytes(allowedExtensions: allowedExtensions);
   }
 }
+

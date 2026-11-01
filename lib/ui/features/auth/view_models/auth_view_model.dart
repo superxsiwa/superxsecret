@@ -47,6 +47,7 @@ class AuthViewModel extends ChangeNotifier {
   Future<bool> setupDualSlotVault({
     required String mainPassword,
     required String secondaryPassword,
+    String passwordHint = '',
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -56,6 +57,7 @@ class AuthViewModel extends ChangeNotifier {
       await _vaultRepository.setupDualSlotVault(
         mainPassword: mainPassword,
         secondaryPassword: secondaryPassword,
+        passwordHint: passwordHint,
       );
       return true;
     } catch (e) {
@@ -66,7 +68,6 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
 
   Future<bool> unlockWithPassword(String password) async {
     _isLoading = true;
@@ -92,4 +93,3 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 }
-

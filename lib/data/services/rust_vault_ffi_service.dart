@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:cryptography/cryptography.dart';
 import '../../domain/models/vault_models.dart';
 
 /// Service bridging Flutter to the Rust Security Core (`superxsecret_core`).
@@ -13,6 +14,10 @@ class RustVaultFfiService {
 
   String _configuredMainPassword = '';
   String _configuredSecondaryPassword = '';
+  String _activeSessionPassword = '';
+  String _activePasswordHint = '';
+  String _mainPasswordHint = '';
+  String _secondaryPasswordHint = '';
   bool _isVaultInitialized = false;
 
   bool get isVaultInitialized => _isVaultInitialized;
@@ -37,7 +42,7 @@ class RustVaultFfiService {
     ),
   ];
 
-  final Map<String, String> _mainSecretTexts = {
+  final Map<String, String> _legacyMainSecretTexts = {
     'topic-main-01': 'User: user@proton.me\nPass: V9#mK!29xPq_88',
     'topic-main-02':
         'Card: 4532 8910 7721 8842\nEXP: 09/29 | CVV: 947 | PIN: 582914',
@@ -59,11 +64,19 @@ class RustVaultFfiService {
     ),
   ];
 
-  final Map<String, String> _secondarySecretTexts = {
+  final Map<String, String> _legacySecondarySecretTexts = {
     'topic-sec-01': 'User: family@gmail.com\nPass: Movie2026!',
     'topic-sec-02': 'SSID: Home_5G\nPass: GuestPass1234',
   };
 
+  final Map<String, _EncryptedSecret> _mainEncryptedSecrets = {};
+  final Map<String, _EncryptedSecret> _secondaryEncryptedSecrets = {};
+  static final _passwordKdf = Pbkdf2(
+    macAlgorithm: Hmac.sha256(),
+    iterations: 120000,
+    bits: 256,
+  );
+  static final _itemCipher = AesGcm.with256bits();
 
   /// Estimates offline password entropy (in bits) based on character pool & pattern diversity.
   double calculatePasswordEntropyBits(String password) {
@@ -85,17 +98,34 @@ class RustVaultFfiService {
   Future<void> initializeDualSlotVault({
     required String mainPassword,
     required String secondaryPassword,
+    String passwordHint = '',
   }) async {
     if (mainPassword.trim().isEmpty || secondaryPassword.trim().isEmpty) {
-      throw ArgumentError('Both Main Password and Secondary Password are required');
+      throw ArgumentError(
+          'Both Main Password and Secondary Password are required');
     }
     if (mainPassword == secondaryPassword) {
-      throw ArgumentError('Main Password and Secondary Password must be different');
+      throw ArgumentError(
+          'Main Password and Secondary Password must be different');
     }
     _configuredMainPassword = mainPassword;
     _configuredSecondaryPassword = secondaryPassword;
+    _mainPasswordHint = passwordHint.trim();
+    _secondaryPasswordHint = passwordHint.trim();
+    _activeSessionPassword = mainPassword;
+    _activePasswordHint = _mainPasswordHint;
     _isVaultInitialized = true;
     _activeSessionMode = VaultSessionMode.mainVault;
+    await _encryptLegacyItems(
+      VaultSessionMode.mainVault,
+      mainPassword,
+      _mainPasswordHint,
+    );
+    await _encryptLegacyItems(
+      VaultSessionMode.secondaryVault,
+      secondaryPassword,
+      _secondaryPasswordHint,
+    );
   }
 
   /// Unlocks the Dual-Slot Vault via Argon2id + AES-256-GCM slot verification.
@@ -104,6 +134,8 @@ class RustVaultFfiService {
     if (!_isVaultInitialized) {
       if (candidatePassword == 'Decoy1234') {
         _activeSessionMode = VaultSessionMode.secondaryVault;
+        _activeSessionPassword = candidatePassword;
+        _activePasswordHint = _secondaryPasswordHint;
         return VaultSessionMode.secondaryVault;
       }
       if (candidatePassword.length >= 8) {
@@ -111,6 +143,8 @@ class RustVaultFfiService {
         _configuredSecondaryPassword = 'Decoy1234';
         _isVaultInitialized = true;
         _activeSessionMode = VaultSessionMode.mainVault;
+        _activeSessionPassword = candidatePassword;
+        _activePasswordHint = _mainPasswordHint;
         return VaultSessionMode.mainVault;
       }
       throw StateError('Wrong password');
@@ -118,10 +152,14 @@ class RustVaultFfiService {
 
     if (candidatePassword == _configuredMainPassword) {
       _activeSessionMode = VaultSessionMode.mainVault;
+      _activeSessionPassword = candidatePassword;
+      _activePasswordHint = _mainPasswordHint;
       return VaultSessionMode.mainVault;
     }
     if (candidatePassword == _configuredSecondaryPassword) {
       _activeSessionMode = VaultSessionMode.secondaryVault;
+      _activeSessionPassword = candidatePassword;
+      _activePasswordHint = _secondaryPasswordHint;
       return VaultSessionMode.secondaryVault;
     }
 
@@ -131,6 +169,8 @@ class RustVaultFfiService {
   /// Immediately zeroes the active DEK in memory and closes the SQLCipher session.
   void lockAndZeroizeVault() {
     _activeSessionMode = null;
+    _activeSessionPassword = '';
+    _activePasswordHint = '';
   }
 
   /// Returns non-sensitive topic summaries for the currently unlocked vault partition.
@@ -146,7 +186,10 @@ class RustVaultFfiService {
   }
 
   /// Just-In-Time (JIT) decryption of a single topic's Secret Text.
-  Future<DecodedTopicSecret> decryptPayloadJit(String itemUuid) async {
+  Future<DecodedTopicSecret> decryptPayloadJit(
+    String itemUuid, {
+    String? overridePassword,
+  }) async {
     final mode = _activeSessionMode;
     if (mode == null) {
       throw StateError('Vault is locked');
@@ -154,27 +197,92 @@ class RustVaultFfiService {
     final summaries = mode == VaultSessionMode.secondaryVault
         ? _secondarySummaries
         : _mainSummaries;
-    final store = mode == VaultSessionMode.secondaryVault
-        ? _secondarySecretTexts
-        : _mainSecretTexts;
-
     final summary = summaries.where((s) => s.itemUuid == itemUuid).firstOrNull;
-    final secretText = store[itemUuid];
-    if (summary == null || secretText == null) {
+    if (summary == null) {
       throw StateError('Topic not found or AAD tag mismatch');
     }
+    final password = overridePassword ?? _activeSessionPassword;
+    if (password.isEmpty) {
+      throw StateError('Vault session password is unavailable');
+    }
+
+    final encryptedSecrets = _encryptedSecretsFor(mode);
+    var encryptedSecret = encryptedSecrets[itemUuid];
+    if (encryptedSecret == null) {
+      final legacySecrets = mode == VaultSessionMode.secondaryVault
+          ? _legacySecondarySecretTexts
+          : _legacyMainSecretTexts;
+      final legacySecret = legacySecrets.remove(itemUuid);
+      if (legacySecret != null) {
+        encryptedSecret = await _encryptItemSecret(
+          itemUuid: itemUuid,
+          secretText: legacySecret,
+          password: _activeSessionPassword,
+        );
+        encryptedSecrets[itemUuid] = encryptedSecret;
+      }
+    }
+    if (encryptedSecret == null) {
+      throw StateError('Topic not found or AAD tag mismatch');
+    }
+    final secretText = await _decryptItemSecret(
+      itemUuid: itemUuid,
+      encryptedSecret: encryptedSecret,
+      password: password,
+      passwordHint: summary.passwordHint,
+    );
     return DecodedTopicSecret(
       itemUuid: summary.itemUuid,
       topic: summary.topic,
       secretText: secretText,
+      passwordHint: summary.passwordHint,
     );
   }
 
+  Future<void> verifyItemPassword(
+    String itemUuid, {
+    String? overridePassword,
+  }) async {
+    await decryptPayloadJit(itemUuid, overridePassword: overridePassword);
+  }
+
+  Future<void> updateItemPassword({
+    required String itemUuid,
+    required String currentItemPassword,
+  }) async {
+    final mode = _activeSessionMode;
+    if (mode == null) {
+      throw StateError('Vault is locked');
+    }
+    final summaries = _summariesFor(mode);
+    final summary =
+        summaries.where((item) => item.itemUuid == itemUuid).firstOrNull;
+    if (summary == null) {
+      throw StateError('Topic not found');
+    }
+    final decoded = await decryptPayloadJit(
+      itemUuid,
+      overridePassword: currentItemPassword,
+    );
+    final updatedSummary = VaultTopicSummary(
+      itemUuid: summary.itemUuid,
+      topic: summary.topic,
+      updatedAt: DateTime.now(),
+      passwordHint: _activePasswordHint,
+    );
+    _encryptedSecretsFor(mode)[itemUuid] = await _encryptItemSecret(
+      itemUuid: itemUuid,
+      secretText: decoded.secretText,
+      password: _activeSessionPassword,
+    );
+    summaries[summaries.indexOf(summary)] = updatedSummary;
+  }
 
   /// Creates a new Topic + Secret Text item in the active vault partition.
   Future<VaultTopicSummary> createNewTopic({
     required String topic,
     required String secretText,
+    String passwordHint = '',
   }) async {
     final mode = _activeSessionMode;
     if (mode == null) {
@@ -192,16 +300,111 @@ class RustVaultFfiService {
       itemUuid: uuid,
       topic: cleanTopic,
       updatedAt: DateTime.now(),
+      passwordHint: passwordHint.trim().isEmpty
+          ? _activePasswordHint
+          : passwordHint.trim(),
     );
-
-    if (mode == VaultSessionMode.secondaryVault) {
-      _secondarySummaries.insert(0, summary);
-      _secondarySecretTexts[uuid] = secretText;
-    } else {
-      _mainSummaries.insert(0, summary);
-      _mainSecretTexts[uuid] = secretText;
-    }
+    _summariesFor(mode).insert(0, summary);
+    _encryptedSecretsFor(mode)[uuid] = await _encryptItemSecret(
+      itemUuid: uuid,
+      secretText: secretText,
+      password: _activeSessionPassword,
+    );
     return summary;
+  }
+
+  List<VaultTopicSummary> _summariesFor(VaultSessionMode mode) {
+    return mode == VaultSessionMode.secondaryVault
+        ? _secondarySummaries
+        : _mainSummaries;
+  }
+
+  Map<String, _EncryptedSecret> _encryptedSecretsFor(VaultSessionMode mode) {
+    return mode == VaultSessionMode.secondaryVault
+        ? _secondaryEncryptedSecrets
+        : _mainEncryptedSecrets;
+  }
+
+  Future<void> _encryptLegacyItems(
+    VaultSessionMode mode,
+    String password,
+    String passwordHint,
+  ) async {
+    final legacySecrets = mode == VaultSessionMode.secondaryVault
+        ? _legacySecondarySecretTexts
+        : _legacyMainSecretTexts;
+    final encryptedSecrets = _encryptedSecretsFor(mode);
+    final summaries = _summariesFor(mode);
+    for (final entry in legacySecrets.entries.toList()) {
+      encryptedSecrets[entry.key] = await _encryptItemSecret(
+        itemUuid: entry.key,
+        secretText: entry.value,
+        password: password,
+      );
+      final index = summaries.indexWhere((item) => item.itemUuid == entry.key);
+      if (index >= 0) {
+        final item = summaries[index];
+        summaries[index] = VaultTopicSummary(
+          itemUuid: item.itemUuid,
+          topic: item.topic,
+          updatedAt: item.updatedAt,
+          passwordHint: passwordHint,
+        );
+      }
+      legacySecrets.remove(entry.key);
+    }
+  }
+
+  Future<_EncryptedSecret> _encryptItemSecret({
+    required String itemUuid,
+    required String secretText,
+    required String password,
+  }) async {
+    final random = math.Random.secure();
+    final salt = List<int>.generate(16, (_) => random.nextInt(256));
+    final nonce = List<int>.generate(12, (_) => random.nextInt(256));
+    final key = await _passwordKdf.deriveKey(
+      secretKey: SecretKey(utf8.encode(password)),
+      nonce: salt,
+    );
+    final box = await _itemCipher.encrypt(
+      utf8.encode(secretText),
+      secretKey: key,
+      nonce: nonce,
+      aad: utf8.encode('superxsecret.v1.item:$itemUuid'),
+    );
+    return _EncryptedSecret(
+      salt: salt,
+      nonce: nonce,
+      cipherText: box.cipherText,
+      mac: box.mac.bytes,
+    );
+  }
+
+  Future<String> _decryptItemSecret({
+    required String itemUuid,
+    required _EncryptedSecret encryptedSecret,
+    required String password,
+    required String passwordHint,
+  }) async {
+    final key = await _passwordKdf.deriveKey(
+      secretKey: SecretKey(utf8.encode(password)),
+      nonce: encryptedSecret.salt,
+    );
+    try {
+      final bytes = await _itemCipher.decrypt(
+        SecretBox(
+          encryptedSecret.cipherText,
+          nonce: encryptedSecret.nonce,
+          mac: Mac(encryptedSecret.mac),
+        ),
+        secretKey: key,
+        aad: utf8.encode('superxsecret.v1.item:$itemUuid'),
+      );
+      return utf8.decode(bytes);
+    } on SecretBoxAuthenticationError {
+      throw VaultItemPasswordException(passwordHint);
+    }
   }
 
   /// Generates a high-entropy random password offline using `Random.secure()`.
@@ -209,18 +412,23 @@ class RustVaultFfiService {
     const chars =
         'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#\$%^&*_+-=';
     final rng = math.Random.secure();
-    return List.generate(length, (_) => chars[rng.nextInt(chars.length)]).join();
+    return List.generate(length, (_) => chars[rng.nextInt(chars.length)])
+        .join();
   }
 
   /// Exports a single Topic + Secret Text into an encrypted `.sxsi` (`"SXSI"` magic) armored packet.
   Future<String> exportSingleItemSxsi({
     required String itemUuid,
     required String filePassword,
+    String? itemPassword,
   }) async {
     if (filePassword.trim().isEmpty) {
       throw ArgumentError('File Password is required');
     }
-    final decoded = await decryptPayloadJit(itemUuid);
+    final decoded = await decryptPayloadJit(
+      itemUuid,
+      overridePassword: itemPassword,
+    );
     final payloadMap = {
       'topic': decoded.topic,
       'secretText': decoded.secretText,
@@ -243,6 +451,7 @@ class RustVaultFfiService {
     if (_activeSessionMode == null) {
       throw StateError('Vault is locked');
     }
+
     if (filePassword.trim().isEmpty) {
       throw ArgumentError('File Password is required');
     }
@@ -269,7 +478,6 @@ class RustVaultFfiService {
       secretText: (map['secretText'] as String?) ?? '',
     );
   }
-
 
   /// Generates a live 6-digit RFC 6238 TOTP code offline from the device clock.
   TotpCodeState computeOfflineTotp(String base32Secret, DateTime now) {
@@ -339,17 +547,28 @@ class RustVaultFfiService {
 
     final header = <int>[
       ...magic,
-      0x00, 0x01,
+      0x00,
       0x01,
       0x01,
-      0x00, 0x01, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x03,
-      0x00, 0x00, 0x00, 0x04,
+      0x01,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x03,
+      0x00,
+      0x00,
+      0x00,
+      0x04,
       ...salt,
       ...nonce,
     ];
 
-    final keyStream = _deriveKeyStream(password, salt, nonce, plainBytes.length);
+    final keyStream =
+        _deriveKeyStream(password, salt, nonce, plainBytes.length);
     final ciphertext = List<int>.generate(
       plainBytes.length,
       (i) => plainBytes[i] ^ keyStream[i],
@@ -387,9 +606,11 @@ class RustVaultFfiService {
       throw StateError('Wrong password or tampered file');
     }
 
-    final keyStream = _deriveKeyStream(password, salt, nonce, ciphertext.length);
+    final keyStream =
+        _deriveKeyStream(password, salt, nonce, ciphertext.length);
     return Uint8List.fromList(
-      List<int>.generate(ciphertext.length, (i) => ciphertext[i] ^ keyStream[i]),
+      List<int>.generate(
+          ciphertext.length, (i) => ciphertext[i] ^ keyStream[i]),
     );
   }
 
@@ -433,4 +654,16 @@ class RustVaultFfiService {
   }
 }
 
+class _EncryptedSecret {
+  const _EncryptedSecret({
+    required this.salt,
+    required this.nonce,
+    required this.cipherText,
+    required this.mac,
+  });
 
+  final List<int> salt;
+  final List<int> nonce;
+  final List<int> cipherText;
+  final List<int> mac;
+}

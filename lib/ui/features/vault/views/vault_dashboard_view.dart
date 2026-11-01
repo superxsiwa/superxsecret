@@ -267,7 +267,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => _showShareSxsiDialog(context, item),
+                  onPressed: () => _shareItem(item),
                   icon: const Icon(Icons.ios_share_rounded, size: 15),
                   label: const Text('Share', style: TextStyle(fontSize: 12)),
                 ),
@@ -278,8 +278,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         AppTheme.emeraldSecure.withValues(alpha: 0.16),
                     foregroundColor: AppTheme.emeraldSecure,
                   ),
-                  onPressed: () =>
-                      widget.viewModel.revealSecretJit(item.itemUuid),
+                  onPressed: () => _viewItem(item),
                   icon: const Icon(Icons.visibility_rounded, size: 16),
                   label: const Text(
                     'View',
@@ -296,7 +295,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
       ),
     );
   }
-
 
   Widget _buildActiveJitRevealCard(BuildContext context) {
     final secret = widget.viewModel.activeRevealedSecret!;
@@ -408,7 +406,6 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
-
   void _showScrambledKeypadDemoSheet(BuildContext context) {
     var enteredPin = '';
     showModalBottomSheet<void>(
@@ -468,6 +465,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   void _showNewTopicDialog(BuildContext context) {
     final topicCtrl = TextEditingController();
     final secretCtrl = TextEditingController();
+    final hintCtrl = TextEditingController();
     String? errorMsg;
 
     showDialog<void>(
@@ -502,6 +500,16 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         labelText: 'Secret Text',
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: hintCtrl,
+                      enableIMEPersonalizedLearning: false,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Password Hint (Optional)',
+                      ),
+                    ),
                     if (errorMsg != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -526,6 +534,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       await widget.viewModel.createTopic(
                         topic: topicCtrl.text,
                         secretText: secretCtrl.text,
+                        passwordHint: hintCtrl.text,
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop();
                     } catch (e) {
@@ -542,8 +551,157 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
+  Future<void> _viewItem(
+    VaultTopicSummary item,
+  ) async {
+    try {
+      await widget.viewModel.revealSecretJit(item.itemUuid);
+    } on VaultItemPasswordException {
+      if (!mounted) return;
+      await _showEnterPasswordDialog(
+        context,
+        item,
+        onUnlocked: (password) => widget.viewModel.revealSecretJit(
+          item.itemUuid,
+          overridePassword: password,
+        ),
+      );
+    } catch (error) {
+      if (mounted) _showActionError(context, error);
+    }
+  }
 
-  void _showShareSxsiDialog(BuildContext context, VaultTopicSummary item) {
+  Future<void> _shareItem(
+    VaultTopicSummary item,
+  ) async {
+    try {
+      await widget.viewModel.verifyItemPassword(item.itemUuid);
+      if (mounted) {
+        _showShareSxsiDialog(context, item);
+      }
+    } on VaultItemPasswordException {
+      if (!mounted) return;
+      await _showEnterPasswordDialog(
+        context,
+        item,
+        onUnlocked: (password) async {
+          if (mounted) {
+            _showShareSxsiDialog(
+              context,
+              item,
+              itemPassword: password,
+            );
+          }
+        },
+      );
+    } catch (error) {
+      if (mounted) _showActionError(context, error);
+    }
+  }
+
+  Future<void> _showEnterPasswordDialog(
+    BuildContext context,
+    VaultTopicSummary item, {
+    required Future<void> Function(String? itemPassword) onUnlocked,
+  }) async {
+    final passwordCtrl = TextEditingController();
+    String? errorMessage;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Enter Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Unlock "${item.topic}" to continue.'),
+              if (item.passwordHint.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Password Hint: ${item.passwordHint}'),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(labelText: 'Password'),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: const TextStyle(
+                    color: AppTheme.crimsonAlert,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            OutlinedButton(
+              onPressed: () async {
+                try {
+                  await widget.viewModel.updateItemPassword(
+                    itemUuid: item.itemUuid,
+                    currentItemPassword: passwordCtrl.text,
+                  );
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    await onUnlocked(null);
+                  }
+                } on VaultItemPasswordException {
+                  setDialogState(() => errorMessage = 'Incorrect password');
+                } catch (error) {
+                  setDialogState(() => errorMessage = error.toString());
+                }
+              },
+              child: const Text('Update to Current Password'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  await widget.viewModel.verifyItemPassword(
+                    item.itemUuid,
+                    overridePassword: passwordCtrl.text,
+                  );
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    await onUnlocked(passwordCtrl.text);
+                  }
+                } on VaultItemPasswordException {
+                  setDialogState(() => errorMessage = 'Incorrect password');
+                } catch (error) {
+                  setDialogState(() => errorMessage = error.toString());
+                }
+              },
+              child: const Text('Unlock'),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordCtrl.dispose();
+  }
+
+  void _showActionError(BuildContext context, Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.toString())),
+    );
+  }
+
+  void _showShareSxsiDialog(
+    BuildContext context,
+    VaultTopicSummary item, {
+    String? itemPassword,
+  }) {
     final filePwdCtrl = TextEditingController();
     String? sxsiPacket;
     String? errorMsg;
@@ -623,6 +781,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                           await widget.viewModel.exportSingleItemSxsi(
                         itemUuid: item.itemUuid,
                         filePassword: filePwdCtrl.text,
+                        itemPassword: itemPassword,
                       );
                       setDialogState(() {
                         sxsiPacket = packet;
@@ -783,8 +942,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 FilledButton.icon(
                   onPressed: () async {
                     try {
-                      final bytes = await widget.viewModel
-                          .exportSxsEncryptedFile(
+                      final bytes =
+                          await widget.viewModel.exportSxsEncryptedFile(
                         masterPasswordVerification: masterCtrl.text,
                         backupFilePassword: backupPwdCtrl.text,
                       );
@@ -809,5 +968,3 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 }
-
-

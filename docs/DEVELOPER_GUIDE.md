@@ -214,7 +214,7 @@ classDiagram
         -VaultRepository _vaultRepository
         +DeviceSecurityPosture securityPosture
         +double currentEntropyBits
-        +setupDualSlotVault(mainPassword, secondaryPassword) Future~bool~
+        +setupDualSlotVault(mainPassword, secondaryPassword, passwordHint) Future~bool~
         +unlockWithPassword(password) Future~bool~
         +lockVault() void
     }
@@ -226,9 +226,9 @@ classDiagram
         +int revealSecondsRemaining
         +int clipboardSecondsRemaining
         +loadVaultSummaries() Future~void~
-        +revealSecretJit(itemUuid) Future~void~
+        +revealSecretJit(itemUuid, overridePassword) Future~void~
         +hideAndZeroizeRevealedSecret() void
-        +createTopic(topic, secretText) Future~void~
+        +createTopic(topic, secretText, passwordHint) Future~void~
         +exportSingleItemSxsi(itemUuid, filePassword) Future~String~
         +importSingleItemSxsi(sxsiPacket, filePassword) Future~VaultTopicSummary~
     }
@@ -236,11 +236,11 @@ classDiagram
     class VaultRepository {
         -RustVaultFfiService _rustFfiService
         -OsHardeningService _osHardeningService
-        +setupDualSlotVault(mainPass, secondaryPass) Future~void~
+        +setupDualSlotVault(mainPass, secondaryPass, passwordHint) Future~void~
         +unlockVault(password) Future~VaultSessionMode~
         +fetchVaultSummaries() Future~List~VaultTopicSummary~~
-        +revealSecretPayloadJit(itemUuid) Future~DecodedTopicSecret~
-        +saveTopic(topic, secretText) Future~VaultTopicSummary~
+        +revealSecretPayloadJit(itemUuid, overridePassword) Future~DecodedTopicSecret~
+        +saveTopic(topic, secretText, passwordHint) Future~VaultTopicSummary~
         +exportSingleItemSxsi(itemUuid, filePass) Future~String~
         +importSingleItemSxsi(packet, filePass) Future~VaultTopicSummary~
     }
@@ -249,12 +249,14 @@ classDiagram
         +String itemUuid
         +String topic
         +DateTime updatedAt
+        +String passwordHint
     }
 
     class DecodedTopicSecret {
         +String itemUuid
         +String topic
         +String secretText
+        +String passwordHint
     }
 
     class RustSecurityCore {
@@ -372,5 +374,4 @@ erDiagram
   - Verify creating and decoding a unified Topic + Secret Text item.
   - Verify exporting a single item into `.sxsi` with a File Password and decoding/importing it (plus rejecting wrong passwords).
   - Verify full `.sxs` backup `"SXSV"` magic header integrity.
-
 

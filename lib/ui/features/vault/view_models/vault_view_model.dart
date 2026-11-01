@@ -52,9 +52,15 @@ class VaultViewModel extends ChangeNotifier {
 
   /// Just-In-Time (JIT) decryption of a single topic's Secret Text.
   /// Automatically wipes the decrypted secret from RAM after 15 seconds.
-  Future<void> revealSecretJit(String itemUuid) async {
+  Future<void> revealSecretJit(
+    String itemUuid, {
+    String? overridePassword,
+  }) async {
     _revealCountdownTimer?.cancel();
-    final secret = await _vaultRepository.revealSecretPayloadJit(itemUuid);
+    final secret = await _vaultRepository.revealSecretPayloadJit(
+      itemUuid,
+      overridePassword: overridePassword,
+    );
     _activeRevealedSecret = secret;
     _revealSecondsRemaining = 15;
     notifyListeners();
@@ -82,13 +88,35 @@ class VaultViewModel extends ChangeNotifier {
   Future<VaultTopicSummary> createTopic({
     required String topic,
     required String secretText,
+    String passwordHint = '',
   }) async {
     final created = await _vaultRepository.saveTopic(
       topic: topic,
       secretText: secretText,
+      passwordHint: passwordHint,
     );
     await loadVaultSummaries();
     return created;
+  }
+
+  Future<void> updateItemPassword({
+    required String itemUuid,
+    required String currentItemPassword,
+  }) {
+    return _vaultRepository.updateItemPassword(
+      itemUuid: itemUuid,
+      currentItemPassword: currentItemPassword,
+    );
+  }
+
+  Future<void> verifyItemPassword(
+    String itemUuid, {
+    String? overridePassword,
+  }) {
+    return _vaultRepository.verifyItemPassword(
+      itemUuid,
+      overridePassword: overridePassword,
+    );
   }
 
   String generateRandomPassword({int length = 20}) {
@@ -99,10 +127,12 @@ class VaultViewModel extends ChangeNotifier {
   Future<String> exportSingleItemSxsi({
     required String itemUuid,
     required String filePassword,
+    String? itemPassword,
   }) {
     return _vaultRepository.exportSingleItemSxsi(
       itemUuid: itemUuid,
       filePassword: filePassword,
+      itemPassword: itemPassword,
     );
   }
 
@@ -174,5 +204,3 @@ class VaultViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-
-

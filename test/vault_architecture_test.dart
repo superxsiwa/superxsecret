@@ -7,6 +7,8 @@ import 'package:superxsecret/data/services/rust_vault_ffi_service.dart';
 import 'package:superxsecret/domain/models/vault_models.dart';
 import 'package:superxsecret/ui/features/vault/view_models/vault_view_model.dart';
 import 'package:superxsecret/ui/features/vault/views/vault_dashboard_view.dart';
+import 'package:superxsecret/ui/features/auth/view_models/auth_view_model.dart';
+import 'package:superxsecret/ui/features/auth/views/lock_screen_view.dart';
 
 void main() {
   group('SuperXSecret v1.5 Dual-Vault & Unified Topic Security Tests', () {
@@ -20,14 +22,17 @@ void main() {
       );
     });
 
-    test('Dual-Slot unlock isolates Main Vault (Slot A) from Secondary Vault (Slot B)', () async {
+    test(
+        'Dual-Slot unlock isolates Main Vault (Slot A) from Secondary Vault (Slot B)',
+        () async {
       await repository.setupDualSlotVault(
         mainPassword: 'MainVaultPassword#2026!',
         secondaryPassword: 'SecondaryVaultPin999',
       );
 
       // Unlock with Secondary Password -> opens Secondary Vault (Slot B) only
-      final secondaryMode = await repository.unlockVault('SecondaryVaultPin999');
+      final secondaryMode =
+          await repository.unlockVault('SecondaryVaultPin999');
       expect(secondaryMode, equals(VaultSessionMode.secondaryVault));
       final secondaryItems = await repository.fetchVaultSummaries();
       expect(secondaryItems.length, equals(2));
@@ -42,7 +47,8 @@ void main() {
       expect(mainItems.first.topic, equals('ProtonMail'));
     });
 
-    test('Unified Topic + Secret Text creation and JIT decryption work cleanly', () async {
+    test('Unified Topic + Secret Text creation and JIT decryption work cleanly',
+        () async {
       await repository.unlockVault('SuperSecret#2026');
 
       final summary = await repository.saveTopic(
@@ -57,7 +63,58 @@ void main() {
       expect(decoded.secretText, equals('ghp_OfflineZeroKnowledgeToken2026'));
     });
 
-    test('.sxsi single-item share verifies SXSI magic header and File Password', () async {
+    test(
+        'Changing passwords preserves items encrypted with their original password',
+        () async {
+      await repository.setupDualSlotVault(
+        mainPassword: 'OriginalMainPassword#2026',
+        secondaryPassword: 'OriginalSecondaryPassword#2026',
+        passwordHint: 'First hint',
+      );
+      final item = await repository.saveTopic(
+        topic: 'Old password item',
+        secretText: 'still encrypted',
+        passwordHint: 'Original hint',
+      );
+
+      await repository.setupDualSlotVault(
+        mainPassword: 'ReplacementMainPassword#2026',
+        secondaryPassword: 'ReplacementSecondaryPassword#2026',
+        passwordHint: 'New hint',
+      );
+
+      final summaries = await repository.fetchVaultSummaries();
+      expect(summaries.any((summary) => summary.itemUuid == item.itemUuid),
+          isTrue);
+      expect(
+        summaries
+            .singleWhere((summary) => summary.itemUuid == item.itemUuid)
+            .passwordHint,
+        'Original hint',
+      );
+      await expectLater(
+        repository.revealSecretPayloadJit(item.itemUuid),
+        throwsA(isA<VaultItemPasswordException>()),
+      );
+
+      final decoded = await repository.revealSecretPayloadJit(
+        item.itemUuid,
+        overridePassword: 'OriginalMainPassword#2026',
+      );
+      expect(decoded.secretText, 'still encrypted');
+      expect(decoded.passwordHint, 'Original hint');
+
+      await repository.updateItemPassword(
+        itemUuid: item.itemUuid,
+        currentItemPassword: 'OriginalMainPassword#2026',
+      );
+      final updated = await repository.revealSecretPayloadJit(item.itemUuid);
+      expect(updated.secretText, 'still encrypted');
+      expect(updated.passwordHint, 'New hint');
+    });
+
+    test('.sxsi single-item share verifies SXSI magic header and File Password',
+        () async {
       await repository.setupDualSlotVault(
         mainPassword: 'MainVaultPassword#2026!',
         secondaryPassword: 'SecondaryVaultPin999',
@@ -98,7 +155,8 @@ void main() {
       expect(imported.topic, equals('ProtonMail'));
     });
 
-    test('.sxs full backup container begins with SXSV magic header bytes', () async {
+    test('.sxs full backup container begins with SXSV magic header bytes',
+        () async {
       await repository.unlockVault('SuperSecret#2026');
       final sxsBytes = await repository.exportSxsBackup(
         verifyMasterPassword: 'SuperSecret#2026',
@@ -109,7 +167,9 @@ void main() {
       expect(sxsBytes.sublist(0, 4), equals([0x53, 0x58, 0x53, 0x56]));
     });
 
-    testWidgets('Unlocked VaultDashboardView renders identical UI without Main/Fake badges', (tester) async {
+    testWidgets(
+        'Unlocked VaultDashboardView renders identical UI without Main/Fake badges',
+        (tester) async {
       await repository.unlockVault('Decoy1234');
       final viewModel = VaultViewModel(vaultRepository: repository);
 
@@ -134,7 +194,24 @@ void main() {
       expect(find.textContaining('FAKE'), findsNothing);
       expect(find.textContaining('DECOY'), findsNothing);
     });
+
+    testWidgets('Lock screen does not expose Quick Demo credentials',
+        (tester) async {
+      final authViewModel = AuthViewModel(vaultRepository: repository);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LockScreenView(
+            viewModel: authViewModel,
+            onVaultUnlocked: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quick Demo:'), findsNothing);
+      expect(
+          find.textContaining('Main Vault (SuperSecret#2026)'), findsNothing);
+      authViewModel.dispose();
+    });
   });
 }
-
-

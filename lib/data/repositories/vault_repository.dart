@@ -39,10 +39,12 @@ class VaultRepository {
   Future<void> setupDualSlotVault({
     required String mainPassword,
     required String secondaryPassword,
+    String passwordHint = '',
   }) {
     return _rustFfiService.initializeDualSlotVault(
       mainPassword: mainPassword,
       secondaryPassword: secondaryPassword,
+      passwordHint: passwordHint,
     );
   }
 
@@ -58,17 +60,45 @@ class VaultRepository {
     return _rustFfiService.listSummaries();
   }
 
-  Future<DecodedTopicSecret> revealSecretPayloadJit(String itemUuid) {
-    return _rustFfiService.decryptPayloadJit(itemUuid);
+  Future<DecodedTopicSecret> revealSecretPayloadJit(
+    String itemUuid, {
+    String? overridePassword,
+  }) {
+    return _rustFfiService.decryptPayloadJit(
+      itemUuid,
+      overridePassword: overridePassword,
+    );
+  }
+
+  Future<void> verifyItemPassword(
+    String itemUuid, {
+    String? overridePassword,
+  }) {
+    return _rustFfiService.verifyItemPassword(
+      itemUuid,
+      overridePassword: overridePassword,
+    );
+  }
+
+  Future<void> updateItemPassword({
+    required String itemUuid,
+    required String currentItemPassword,
+  }) {
+    return _rustFfiService.updateItemPassword(
+      itemUuid: itemUuid,
+      currentItemPassword: currentItemPassword,
+    );
   }
 
   Future<VaultTopicSummary> saveTopic({
     required String topic,
     required String secretText,
+    String passwordHint = '',
   }) {
     return _rustFfiService.createNewTopic(
       topic: topic,
       secretText: secretText,
+      passwordHint: passwordHint,
     );
   }
 
@@ -79,10 +109,12 @@ class VaultRepository {
   Future<String> exportSingleItemSxsi({
     required String itemUuid,
     required String filePassword,
+    String? itemPassword,
   }) {
     return _rustFfiService.exportSingleItemSxsi(
       itemUuid: itemUuid,
       filePassword: filePassword,
+      itemPassword: itemPassword,
     );
   }
 
@@ -95,7 +127,6 @@ class VaultRepository {
       filePassword: filePassword,
     );
   }
-
 
   TotpCodeState computeLiveTotp(String base32Secret, DateTime now) {
     return _rustFfiService.computeOfflineTotp(base32Secret, now);
@@ -125,4 +156,3 @@ class VaultRepository {
     );
   }
 }
-

@@ -33,11 +33,13 @@ class VaultTopicSummary {
     required this.itemUuid,
     required this.topic,
     required this.updatedAt,
+    this.passwordHint = '',
   });
 
   final String itemUuid;
   final String topic;
   final DateTime updatedAt;
+  final String passwordHint;
 }
 
 class DecodedTopicSecret {
@@ -45,11 +47,20 @@ class DecodedTopicSecret {
     required this.itemUuid,
     required this.topic,
     required this.secretText,
+    this.passwordHint = '',
   });
 
   final String itemUuid;
   final String topic;
   final String secretText;
+  final String passwordHint;
+}
+
+class VaultItemPasswordException extends StateError {
+  VaultItemPasswordException(this.passwordHint)
+      : super('Item password did not authenticate');
+
+  final String passwordHint;
 }
 
 class TotpCodeState {
@@ -63,5 +74,3 @@ class TotpCodeState {
   final int remainingSeconds;
   final int periodSeconds;
 }
-
-

@@ -19,6 +19,7 @@ class LockScreenView extends StatefulWidget {
 class _LockScreenViewState extends State<LockScreenView> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _duressController = TextEditingController();
+  final TextEditingController _passwordHintController = TextEditingController();
   bool _obscurePassword = true;
   bool _isConfiguringDualSlot = false;
 
@@ -32,6 +33,7 @@ class _LockScreenViewState extends State<LockScreenView> {
   void dispose() {
     _passwordController.dispose();
     _duressController.dispose();
+    _passwordHintController.dispose();
     super.dispose();
   }
 
@@ -49,14 +51,15 @@ class _LockScreenViewState extends State<LockScreenView> {
     final success = await widget.viewModel.setupDualSlotVault(
       mainPassword: _passwordController.text,
       secondaryPassword: _duressController.text,
+      passwordHint: _passwordHintController.text,
     );
     if (success && mounted) {
       _passwordController.clear();
       _duressController.clear();
+      _passwordHintController.clear();
       widget.onVaultUnlocked();
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +134,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      if (posture.isCompromised) _buildCompromisedDeviceBanner(),
+                      if (posture.isCompromised)
+                        _buildCompromisedDeviceBanner(),
                       Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
@@ -148,27 +152,32 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _isConfiguringDualSlot
-                                            ? Icons.tune_rounded
-                                            : Icons.lock_person_rounded,
-                                        size: 18,
-                                        color: AppTheme.emeraldSecure,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _isConfiguringDualSlot
-                                            ? 'Set Passwords'
-                                            : 'Unlock Vault',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 16,
-                                          color: AppTheme.textPrimary,
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _isConfiguringDualSlot
+                                              ? Icons.tune_rounded
+                                              : Icons.lock_person_rounded,
+                                          size: 18,
+                                          color: AppTheme.emeraldSecure,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            _isConfiguringDualSlot
+                                                ? 'Set Passwords'
+                                                : 'Unlock Vault',
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 16,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   TextButton.icon(
                                     style: TextButton.styleFrom(
@@ -246,6 +255,17 @@ class _LockScreenViewState extends State<LockScreenView> {
                                         'Opens a separate Secondary Vault',
                                   ),
                                 ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _passwordHintController,
+                                  enableIMEPersonalizedLearning: false,
+                                  autocorrect: false,
+                                  enableSuggestions: false,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Password Hint (Optional)',
+                                    prefixIcon: Icon(Icons.lightbulb_outline),
+                                  ),
+                                ),
                               ],
                               if (widget.viewModel.errorMessage != null) ...[
                                 const SizedBox(height: 14),
@@ -314,8 +334,6 @@ class _LockScreenViewState extends State<LockScreenView> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildQuickTestCredentialsCard(),
                     ],
                   ),
                 ),
@@ -439,60 +457,4 @@ class _LockScreenViewState extends State<LockScreenView> {
       ],
     );
   }
-
-  Widget _buildQuickTestCredentialsCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Quick Demo:',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.cyberCyan,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ActionChip(
-                avatar: const Icon(Icons.verified_user_rounded, size: 16),
-                label: const Text(
-                  'Main Vault (SuperSecret#2026)',
-                  style: TextStyle(fontSize: 11.5),
-                ),
-                onPressed: () {
-                  _passwordController.text = 'SuperSecret#2026';
-                  widget.viewModel
-                      .updatePasswordInputForEntropy('SuperSecret#2026');
-                },
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.layers_outlined, size: 16),
-                label: const Text(
-                  'Secondary Vault (Decoy1234)',
-                  style: TextStyle(fontSize: 11.5),
-                ),
-                onPressed: () {
-                  _passwordController.text = 'Decoy1234';
-                  widget.viewModel.updatePasswordInputForEntropy('Decoy1234');
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
-
-

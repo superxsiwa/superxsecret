@@ -25,6 +25,7 @@ pub enum VaultDbError {
 pub struct VaultTopicRecord {
     pub item_uuid: String,
     pub topic: String,
+    pub password_hint: String,
     pub updated_at_unix: i64,
     pub schema_version: u16,
 }
@@ -54,6 +55,7 @@ pub fn open_sqlcipher_connection(
         "CREATE TABLE IF NOT EXISTS vault_topics (
             item_uuid TEXT PRIMARY KEY NOT NULL,
             topic TEXT NOT NULL,
+            password_hint TEXT NOT NULL DEFAULT '',
             updated_at_unix INTEGER NOT NULL,
             schema_version INTEGER NOT NULL DEFAULT 1,
             encrypted_payload BLOB NOT NULL
@@ -61,9 +63,23 @@ pub fn open_sqlcipher_connection(
         CREATE INDEX IF NOT EXISTS idx_vault_topics_updated ON vault_topics(updated_at_unix DESC);",
     )?;
 
+    let has_password_hint = {
+        let mut stmt = conn.prepare("PRAGMA table_info(vault_topics)")?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        columns
+            .collect::<Result<Vec<_>, _>>()?
+            .iter()
+            .any(|column| column == "password_hint")
+    };
+    if !has_password_hint {
+        conn.execute(
+            "ALTER TABLE vault_topics ADD COLUMN password_hint TEXT NOT NULL DEFAULT ''",
+            [],
+        )?;
+    }
+
     Ok(conn)
 }
-
 
 /// Inserts or updates a vault topic record, encrypting `secret_text_bytes` with AES-256-GCM + Record AAD.
 pub fn upsert_vault_topic(
@@ -77,16 +93,18 @@ pub fn upsert_vault_topic(
 
     conn.execute(
         "INSERT INTO vault_topics (
-            item_uuid, topic, updated_at_unix, schema_version, encrypted_payload
-        ) VALUES (?1, ?2, ?3, ?4, ?5)
+            item_uuid, topic, password_hint, updated_at_unix, schema_version, encrypted_payload
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
         ON CONFLICT(item_uuid) DO UPDATE SET
             topic = excluded.topic,
+            password_hint = excluded.password_hint,
             updated_at_unix = excluded.updated_at_unix,
             schema_version = excluded.schema_version,
             encrypted_payload = excluded.encrypted_payload;",
         params![
             meta.item_uuid,
             meta.topic,
+            meta.password_hint,
             meta.updated_at_unix,
             meta.schema_version,
             encrypted_blob
@@ -99,7 +117,7 @@ pub fn upsert_vault_topic(
 /// Lists all non-sensitive topic summaries without decrypting any `encrypted_payload` blobs!
 pub fn list_vault_summaries(conn: &Connection) -> Result<Vec<VaultTopicRecord>, VaultDbError> {
     let mut stmt = conn.prepare(
-        "SELECT item_uuid, topic, updated_at_unix, schema_version
+        "SELECT item_uuid, topic, password_hint, updated_at_unix, schema_version
          FROM vault_topics
          ORDER BY updated_at_unix DESC",
     )?;
@@ -108,8 +126,9 @@ pub fn list_vault_summaries(conn: &Connection) -> Result<Vec<VaultTopicRecord>, 
         Ok(VaultTopicRecord {
             item_uuid: row.get(0)?,
             topic: row.get(1)?,
-            updated_at_unix: row.get(2)?,
-            schema_version: row.get(3)?,
+            password_hint: row.get(2)?,
+            updated_at_unix: row.get(3)?,
+            schema_version: row.get(4)?,
         })
     })?;
 
@@ -140,5 +159,3 @@ pub fn decrypt_single_item_payload(
     let decrypted = decrypt_field_aead(dek, &encrypted_blob, &aad)?;
     Ok(decrypted)
 }
-
-

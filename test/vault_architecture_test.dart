@@ -125,7 +125,7 @@ void main() {
 
       expect(find.text('New'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsNothing);
-      expect(find.text('Import File'), findsOneWidget);
+      expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
       expect(find.text('View'), findsWidgets);
       expect(find.text('Share'), findsWidgets);
       expect(find.text('Email'), findsNothing);

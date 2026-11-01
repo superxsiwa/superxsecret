@@ -35,47 +35,27 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Row(
+            titleSpacing: 12,
+            title: const Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.shield_rounded,
                   color: AppTheme.emeraldSecure,
-                  size: 22,
+                  size: 20,
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                SizedBox(width: 6),
+                Text(
                   'SuperXSecret',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 19),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.emeraldSecure.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppTheme.emeraldSecure.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: const Text(
-                    'OFFLINE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.emeraldSecure,
-                    ),
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
                 ),
               ],
             ),
             actions: [
-              TextButton.icon(
+              IconButton(
+                tooltip: 'Import (.sxsi)',
+                icon: const Icon(Icons.file_download_outlined),
                 onPressed: () => _showImportSxsiDialog(context),
-                icon: const Icon(Icons.file_download_outlined, size: 18),
-                label: const Text('Import File'),
               ),
               IconButton(
                 tooltip: 'Backup (.sxs)',

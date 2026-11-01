@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'data/repositories/vault_repository.dart';
 import 'data/services/os_hardening_service.dart';
 import 'data/services/rust_vault_ffi_service.dart';
+import 'ui/core/localization/app_localizations.dart';
 import 'ui/core/theme/app_theme.dart';
 import 'ui/core/widgets/privacy_curtain_wrapper.dart';
 import 'ui/features/auth/view_models/auth_view_model.dart';
@@ -37,6 +38,7 @@ class SuperXSecretApp extends StatefulWidget {
 class _SuperXSecretAppState extends State<SuperXSecretApp> {
   late final AuthViewModel _authViewModel;
   late final VaultViewModel _vaultViewModel;
+  final AppLanguageController _languageController = AppLanguageController();
   bool _isVaultUnlocked = false;
 
   @override
@@ -65,6 +67,7 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
 
   @override
   void dispose() {
+    _languageController.dispose();
     _authViewModel.dispose();
     _vaultViewModel.dispose();
     super.dispose();
@@ -72,25 +75,34 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SuperXSecret Offline Vault',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkVaultTheme,
-      builder: (context, child) {
-        return PrivacyCurtainWrapper(
-          onBackgroundAutoLock: _handleImmediateAutoLock,
-          child: child ?? const SizedBox.shrink(),
+    return ListenableBuilder(
+      listenable: _languageController,
+      builder: (context, _) {
+        return AppLanguageScope(
+          controller: _languageController,
+          child: MaterialApp(
+            title: 'SuperXSecret Offline Vault',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.darkVaultTheme,
+            builder: (context, child) {
+              return PrivacyCurtainWrapper(
+                onBackgroundAutoLock: _handleImmediateAutoLock,
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
+            home: _isVaultUnlocked
+                ? VaultDashboardView(
+                    viewModel: _vaultViewModel,
+                    onLockRequested: _handleImmediateAutoLock,
+                  )
+                : LockScreenView(
+                    viewModel: _authViewModel,
+                    onVaultUnlocked: () =>
+                        setState(() => _isVaultUnlocked = true),
+                  ),
+          ),
         );
       },
-      home: _isVaultUnlocked
-          ? VaultDashboardView(
-              viewModel: _vaultViewModel,
-              onLockRequested: _handleImmediateAutoLock,
-            )
-          : LockScreenView(
-              viewModel: _authViewModel,
-              onVaultUnlocked: () => setState(() => _isVaultUnlocked = true),
-            ),
     );
   }
 }

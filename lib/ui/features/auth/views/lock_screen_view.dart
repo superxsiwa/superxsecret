@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../view_models/auth_view_model.dart';
 
@@ -63,6 +64,8 @@ class _LockScreenViewState extends State<LockScreenView> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
+
     return ListenableBuilder(
       listenable: widget.viewModel,
       builder: (context, _) {
@@ -82,7 +85,28 @@ class _LockScreenViewState extends State<LockScreenView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildZeroNetworkTrustHeader(posture.isCompromised),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildZeroNetworkTrustHeader(
+                              posture.isCompromised,
+                              strings,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: strings.language,
+                            icon: const Icon(
+                              Icons.language_rounded,
+                              color: AppTheme.emeraldSecure,
+                            ),
+                            onPressed: () => showLanguageSelectionDialog(
+                              context,
+                              AppLanguageScope.of(context),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 24),
                       Center(
                         child: Container(
@@ -124,10 +148,10 @@ class _LockScreenViewState extends State<LockScreenView> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        '100% Offline • Zero-Knowledge • Dual-Vault',
+                      Text(
+                        strings.zeroKnowledgeSecurity,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.textSecondary,
@@ -166,8 +190,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                                         Flexible(
                                           child: Text(
                                             _isConfiguringDualSlot
-                                                ? 'Set Passwords'
-                                                : 'Unlock Vault',
+                                                ? strings.setupDualSlot
+                                                : strings.unlockVault,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w800,
@@ -198,8 +222,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                                     ),
                                     label: Text(
                                       _isConfiguringDualSlot
-                                          ? 'Unlock'
-                                          : 'Set Passwords',
+                                          ? strings.unlock
+                                          : strings.setupDualSlot,
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
@@ -222,8 +246,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                                     : _submitUnlock(),
                                 decoration: InputDecoration(
                                   labelText: _isConfiguringDualSlot
-                                      ? 'Main Password'
-                                      : 'Password',
+                                      ? strings.masterPasswordLabel
+                                      : strings.masterPasswordHint,
                                   prefixIcon: const Icon(Icons.key_rounded),
                                   suffixIcon: IconButton(
                                     icon: Icon(
@@ -239,7 +263,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              _buildEntropyBar(entropy),
+                              _buildEntropyBar(entropy, strings),
                               if (_isConfiguringDualSlot) ...[
                                 const SizedBox(height: 16),
                                 TextField(
@@ -248,11 +272,12 @@ class _LockScreenViewState extends State<LockScreenView> {
                                   enableIMEPersonalizedLearning: false,
                                   autocorrect: false,
                                   enableSuggestions: false,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Secondary Password',
-                                    prefixIcon: Icon(Icons.shield_outlined),
+                                  decoration: InputDecoration(
+                                    labelText: strings.secondaryPasswordLabel,
+                                    prefixIcon:
+                                        const Icon(Icons.shield_outlined),
                                     helperText:
-                                        'Opens a separate Secondary Vault',
+                                        strings.secondaryPasswordHelper,
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -261,9 +286,11 @@ class _LockScreenViewState extends State<LockScreenView> {
                                   enableIMEPersonalizedLearning: false,
                                   autocorrect: false,
                                   enableSuggestions: false,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Password Hint (Optional)',
-                                    prefixIcon: Icon(Icons.lightbulb_outline),
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        strings.passwordHintOptional,
+                                    prefixIcon:
+                                        const Icon(Icons.lightbulb_outline),
                                   ),
                                 ),
                               ],
@@ -321,9 +348,11 @@ class _LockScreenViewState extends State<LockScreenView> {
                                         : _submitUnlock),
                                 icon: const Icon(Icons.lock_open_rounded),
                                 label: Text(
-                                  _isConfiguringDualSlot
-                                      ? 'Save Passwords'
-                                      : 'Unlock',
+                                  widget.viewModel.isLoading
+                                      ? strings.unlocking
+                                      : (_isConfiguringDualSlot
+                                          ? strings.save
+                                          : strings.unlock),
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
@@ -345,7 +374,10 @@ class _LockScreenViewState extends State<LockScreenView> {
     );
   }
 
-  Widget _buildZeroNetworkTrustHeader(bool isCompromised) {
+  Widget _buildZeroNetworkTrustHeader(
+    bool isCompromised,
+    AppStrings strings,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -355,21 +387,21 @@ class _LockScreenViewState extends State<LockScreenView> {
           color: AppTheme.emeraldSecure.withValues(alpha: 0.35),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.wifi_off_rounded,
             size: 16,
             color: AppTheme.emeraldSecure,
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
-              'VERIFIED 0 INTERNET PERMISSIONS • SQLCIPHER 4 + RUST FFI',
+              strings.verifiedOffline,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
@@ -406,19 +438,19 @@ class _LockScreenViewState extends State<LockScreenView> {
     );
   }
 
-  Widget _buildEntropyBar(double bits) {
+  Widget _buildEntropyBar(double bits, AppStrings strings) {
     final progress = (bits / 100.0).clamp(0.0, 1.0);
     final Color barColor;
     final String label;
     if (bits < 45) {
       barColor = AppTheme.crimsonAlert;
-      label = 'Weak (${bits.toStringAsFixed(0)} bits)';
+      label = '${strings.entropyWeak} (${bits.toStringAsFixed(0)} bits)';
     } else if (bits < 75) {
       barColor = AppTheme.amberWarning;
-      label = 'Good (${bits.toStringAsFixed(0)} bits)';
+      label = '${strings.entropyGood} (${bits.toStringAsFixed(0)} bits)';
     } else {
       barColor = AppTheme.emeraldSecure;
-      label = 'Strong (${bits.toStringAsFixed(0)} bits)';
+      label = '${strings.entropyStrong} (${bits.toStringAsFixed(0)} bits)';
     }
 
     return Column(
@@ -428,7 +460,7 @@ class _LockScreenViewState extends State<LockScreenView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Strength:',
+              '${strings.entropyLabel}:',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.white.withValues(alpha: 0.6),

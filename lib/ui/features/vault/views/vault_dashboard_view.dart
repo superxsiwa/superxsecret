@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../domain/models/vault_models.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/scrambled_pin_pad.dart';
 import '../view_models/vault_view_model.dart';
@@ -33,6 +34,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
+
     return ListenableBuilder(
       listenable: widget.viewModel,
       builder: (context, _) {
@@ -59,22 +62,30 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             ),
             actions: [
               IconButton(
-                tooltip: 'Import (.sxsi)',
+                tooltip: strings.language,
+                icon: const Icon(Icons.language_rounded),
+                onPressed: () => showLanguageSelectionDialog(
+                  context,
+                  AppLanguageScope.of(context),
+                ),
+              ),
+              IconButton(
+                tooltip: strings.importSxsi,
                 icon: const Icon(Icons.file_download_outlined),
                 onPressed: () => _showImportSxsiDialog(context),
               ),
               IconButton(
-                tooltip: 'Backup (.sxs)',
+                tooltip: strings.backupSxs,
                 icon: const Icon(Icons.import_export_rounded),
                 onPressed: () => _showSxsBackupDialog(context),
               ),
               IconButton(
-                tooltip: 'PIN',
+                tooltip: strings.pinPad,
                 icon: const Icon(Icons.dialpad_rounded),
                 onPressed: () => _showScrambledKeypadDemoSheet(context),
               ),
               IconButton(
-                tooltip: 'Lock',
+                tooltip: strings.lockVault,
                 icon: const Icon(
                   Icons.lock_outline_rounded,
                   color: AppTheme.amberWarning,
@@ -89,7 +100,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           body: Column(
             children: [
               if (clipboardSecs > 0)
-                _buildClipboardAutoWipeBanner(clipboardSecs),
+                _buildClipboardAutoWipeBanner(context, clipboardSecs),
               if (widget.viewModel.activeRevealedSecret != null)
                 _buildActiveJitRevealCard(context),
               Padding(
@@ -102,9 +113,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         autocorrect: false,
                         enableSuggestions: false,
                         onChanged: widget.viewModel.setSearchQuery,
-                        decoration: const InputDecoration(
-                          hintText: 'Search topic...',
-                          prefixIcon: Icon(Icons.search_rounded),
+                        decoration: InputDecoration(
+                          hintText: strings.searchTopic,
+                          prefixIcon: const Icon(Icons.search_rounded),
                           isDense: true,
                         ),
                       ),
@@ -121,9 +132,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
                       onPressed: () => _showNewTopicDialog(context),
                       icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text(
-                        'New',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      label: Text(
+                        strings.newTopicBtn,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -131,8 +142,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               ),
               Expanded(
                 child: items.isEmpty
-                    ? const Center(
-                        child: Text('No topics found'),
+                    ? Center(
+                        child: Text(strings.noTopicsFound),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
@@ -151,7 +162,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
-  Widget _buildClipboardAutoWipeBanner(int secondsLeft) {
+  Widget _buildClipboardAutoWipeBanner(
+      BuildContext context, int secondsLeft) {
+    final strings = AppLanguageScope.stringsOf(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -166,7 +179,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Copied "${widget.viewModel.copiedFieldLabel}" (auto-wipe in ${secondsLeft}s)',
+              '${strings.copied}: "${widget.viewModel.copiedFieldLabel}" (${strings.secondsLeft(secondsLeft.toString())})',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.amberWarning,
@@ -176,7 +189,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           ),
           TextButton(
             onPressed: widget.viewModel.clearClipboardImmediately,
-            child: const Text('Clear', style: TextStyle(fontSize: 12)),
+            child: Text(strings.clear, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -184,6 +197,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   Widget _buildSummaryCard(BuildContext context, VaultTopicSummary item) {
+    final strings = AppLanguageScope.stringsOf(context);
     final isRevealed =
         widget.viewModel.activeRevealedSecret?.itemUuid == item.itemUuid;
     final isOpening = _openingItemUuid == item.itemUuid;
@@ -261,7 +275,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Options',
+                  tooltip: strings.itemLockTooltip,
                   onSelected: (action) {
                     if (action == 'delete') {
                       _confirmDeleteItem(item);
@@ -271,34 +285,34 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   },
                   itemBuilder: (context) => [
                     if (!item.hasExtraLock)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'add',
-                        child: Text('Add Extra Lock'),
+                        child: Text(strings.addExtraLock),
                       )
                     else ...[
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'change',
-                        child: Text('Change Item Password'),
+                        child: Text(strings.changeItemPassword),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'remove',
-                        child: Text('Remove Extra Lock'),
+                        child: Text(strings.removeItemExtraLock),
                       ),
                     ],
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.delete_outline_rounded,
                             size: 18,
                             color: AppTheme.crimsonAlert,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'Delete Item',
-                            style: TextStyle(color: AppTheme.crimsonAlert),
+                            strings.deleteItemMenu,
+                            style: const TextStyle(color: AppTheme.crimsonAlert),
                           ),
                         ],
                       ),
@@ -321,7 +335,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             Row(
               children: [
                 IconButton(
-                  tooltip: 'Delete',
+                  tooltip: strings.delete,
                   icon: const Icon(Icons.delete_outline_rounded, size: 18),
                   color: AppTheme.crimsonAlert.withValues(alpha: 0.8),
                   visualDensity: VisualDensity.compact,
@@ -331,7 +345,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 OutlinedButton.icon(
                   onPressed: () => _shareItem(item),
                   icon: const Icon(Icons.ios_share_rounded, size: 15),
-                  label: const Text('Share', style: TextStyle(fontSize: 12)),
+                  label: Text(strings.share, style: const TextStyle(fontSize: 12)),
                 ),
                 const SizedBox(width: 10),
                 FilledButton.tonalIcon(
@@ -350,7 +364,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         )
                       : const Icon(Icons.visibility_rounded, size: 16),
                   label: Text(
-                    isOpening ? 'Opening...' : 'View',
+                    isOpening ? strings.opening : strings.view,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -366,6 +380,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   Widget _buildActiveJitRevealCard(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
     final secret = widget.viewModel.activeRevealedSecret!;
     final secsLeft = widget.viewModel.revealSecondsRemaining;
     final progress = (secsLeft / 15.0).clamp(0.0, 1.0);
@@ -400,7 +415,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${secret.topic} • Auto-hide in ${secsLeft}s',
+                    '${secret.topic} • ${strings.autoHide(secsLeft.toString())}',
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
@@ -429,13 +444,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             ),
           ),
           const SizedBox(height: 10),
-          _buildSecretRow('Secret Text', secret.secretText),
+          _buildSecretRow(context, strings.secretText, secret.secretText),
         ],
       ),
     );
   }
 
-  Widget _buildSecretRow(String label, String value) {
+  Widget _buildSecretRow(BuildContext context, String label, String value) {
+    final strings = AppLanguageScope.stringsOf(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -468,7 +484,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               secretValue: value,
             ),
             icon: const Icon(Icons.copy_rounded, size: 16),
-            label: const Text('Copy', style: TextStyle(fontSize: 12)),
+            label: Text(strings.copy, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -476,6 +492,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   void _showScrambledKeypadDemoSheet(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
     var enteredPin = '';
     showModalBottomSheet<void>(
       context: context,
@@ -488,14 +505,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Scrambled PIN Pad',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  Text(
+                    strings.scrambledPinPad,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     enteredPin.isEmpty
-                        ? 'Tap digits below'
+                        ? strings.tapDigitsBelow
                         : '• ' * enteredPin.length,
                     style: const TextStyle(
                       fontSize: 22,
@@ -532,6 +549,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   Future<void> _showNewTopicDialog(BuildContext context) async {
+    final strings = AppLanguageScope.stringsOf(context);
     final topicCtrl = TextEditingController();
     final secretCtrl = TextEditingController();
     final hintCtrl = TextEditingController();
@@ -551,7 +569,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('New Topic'),
+              title: Text(strings.newTopicTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -562,8 +580,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Topic',
+                      decoration: InputDecoration(
+                        labelText: strings.topicFieldLabel,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -573,17 +591,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Secret Text',
+                      decoration: InputDecoration(
+                        labelText: strings.secretTextFieldLabel,
                       ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: hasExtraLock,
-                      title: const Text('🔒 Extra Lock (Separate Password)'),
-                      subtitle: const Text(
-                        'Require a separate password to reveal this item.',
-                      ),
+                      title: Text(strings.extraLockSwitch),
+                      subtitle: Text(strings.extraLockSub),
                       onChanged: (value) => setDialogState(() {
                         hasExtraLock = value;
                         errorMsg = null;
@@ -602,8 +618,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                             value,
                           );
                         }),
-                        decoration: const InputDecoration(
-                          labelText: 'Item Password',
+                        decoration: InputDecoration(
+                          labelText: strings.itemPasswordLabel,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -613,16 +629,16 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         enableIMEPersonalizedLearning: false,
                         autocorrect: false,
                         enableSuggestions: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Confirm Password',
+                        decoration: InputDecoration(
+                          labelText: strings.confirmPasswordLabel,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _buildItemPasswordStrength(passwordEntropyBits),
+                      _buildItemPasswordStrength(context, passwordEntropyBits),
                       const SizedBox(height: 8),
-                      const Text(
-                        'If you forget this password, the item cannot be recovered.',
-                        style: TextStyle(
+                      Text(
+                        strings.extraLockWarning,
+                        style: const TextStyle(
                           color: AppTheme.amberWarning,
                           fontSize: 12,
                         ),
@@ -636,15 +652,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableSuggestions: false,
                       decoration: InputDecoration(
                         labelText: hasExtraLock
-                            ? 'Password Hint'
-                            : 'Password Hint (Optional)',
+                            ? strings.passwordHintLabel
+                            : strings.passwordHintOptional,
                       ),
                     ),
                     if (isEncoding) ...[
                       const SizedBox(height: 12),
                       _buildEncodingProgressWidget(
+                        context,
                         percent: encodingPercent,
                         countdownSeconds: countdownSeconds,
+                        title: strings.encodingData,
                       ),
                     ],
                     if (errorMsg != null) ...[
@@ -663,7 +681,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               actions: [
                 TextButton(
                   onPressed: isEncoding ? null : () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(strings.cancel),
                 ),
                 FilledButton(
                   onPressed: isEncoding
@@ -735,8 +753,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                           }
                         },
                   child: isEncoding
-                      ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
-                      : const Text('Save'),
+                      ? Text('${strings.encodingData} ${(encodingPercent * 100).toInt()}%...')
+                      : Text(strings.save),
                 ),
               ],
             );
@@ -751,7 +769,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     confirmPasswordCtrl.dispose();
   }
 
-  Widget _buildItemPasswordStrength(double bits) {
+  Widget _buildItemPasswordStrength(BuildContext context, double bits) {
+    final strings = AppLanguageScope.stringsOf(context);
     final strength = (bits / 100).clamp(0.0, 1.0);
     final color = bits < 45
         ? AppTheme.crimsonAlert
@@ -759,15 +778,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             ? AppTheme.amberWarning
             : AppTheme.emeraldSecure;
     final label = bits < 45
-        ? 'Weak'
+        ? strings.entropyWeak
         : bits < 75
-            ? 'Good'
-            : 'Strong';
+            ? strings.entropyGood
+            : strings.entropyStrong;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Password strength: $label (${bits.toStringAsFixed(0)} bits)',
+          '${strings.entropyLabel}: $label (${bits.toStringAsFixed(0)} bits)',
           style: TextStyle(color: color, fontSize: 12),
         ),
         const SizedBox(height: 4),
@@ -781,11 +800,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
-  Widget _buildEncodingProgressWidget({
+  Widget _buildEncodingProgressWidget(
+    BuildContext context, {
     required double percent,
     required double countdownSeconds,
-    String title = 'Encoding data...',
+    String? title,
   }) {
+    final strings = AppLanguageScope.stringsOf(context);
+    final progressTitle = title ?? strings.encodingData;
     final pctInt = (percent * 100).toInt().clamp(0, 100);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -817,7 +839,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '$title $pctInt%',
+                    '$progressTitle $pctInt%',
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -833,7 +855,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${countdownSeconds.toStringAsFixed(1)}s left',
+                  strings.secondsLeft(countdownSeconds.toStringAsFixed(1)),
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 11.5,
@@ -1027,17 +1049,16 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   Future<void> _confirmDeleteItem(
     VaultTopicSummary item,
   ) async {
+    final strings = AppLanguageScope.stringsOf(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Item'),
-        content: Text(
-          'Are you sure you want to permanently delete "${item.topic}"? This action cannot be undone.',
-        ),
+        title: Text(strings.deleteConfirmTitle),
+        content: Text(strings.deleteConfirmContent(item.topic)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -1045,7 +1066,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(strings.delete),
           ),
         ],
       ),
@@ -1057,7 +1078,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Deleted "${item.topic}"'),
+              content: Text(strings.deletedSnackbar(item.topic)),
               backgroundColor: AppTheme.surfaceCard,
             ),
           );
@@ -1072,6 +1093,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     VaultTopicSummary item, {
     String? currentItemPassword,
   }) async {
+    final strings = AppLanguageScope.stringsOf(context);
     final passwordCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     final hintCtrl = TextEditingController(text: item.passwordHint);
@@ -1086,8 +1108,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         builder: (context, setDialogState) => AlertDialog(
           title: Text(
             currentItemPassword == null
-                ? 'Add Extra Lock'
-                : 'Change Item Password',
+                ? strings.addExtraLock
+                : strings.changeItemPassword,
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1099,7 +1121,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 autocorrect: false,
                 enableSuggestions: false,
                 onChanged: (_) => setDialogState(() {}),
-                decoration: const InputDecoration(labelText: 'Item Password'),
+                decoration: InputDecoration(labelText: strings.itemPasswordLabel),
               ),
               TextField(
                 controller: confirmCtrl,
@@ -1109,10 +1131,11 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 enableSuggestions: false,
                 onChanged: (_) => setDialogState(() {}),
                 decoration:
-                    const InputDecoration(labelText: 'Confirm Password'),
+                    InputDecoration(labelText: strings.confirmPasswordLabel),
               ),
               const SizedBox(height: 8),
               _buildItemPasswordStrength(
+                context,
                 widget.viewModel.estimatePasswordEntropyBits(passwordCtrl.text),
               ),
               TextField(
@@ -1120,14 +1143,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 enableIMEPersonalizedLearning: false,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: const InputDecoration(labelText: 'Password Hint'),
+                decoration: InputDecoration(labelText: strings.passwordHintLabel),
               ),
               if (isEncoding) ...[
                 const SizedBox(height: 12),
                 _buildEncodingProgressWidget(
+                  context,
                   percent: encodingPercent,
                   countdownSeconds: countdownSeconds,
-                  title: 'Re-encrypting item...',
+                  title: strings.reEncryptingItem,
                 ),
               ],
               if (errorMessage != null)
@@ -1144,7 +1168,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             TextButton(
               onPressed:
                   isEncoding ? null : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(strings.cancel),
             ),
             FilledButton(
               onPressed: isEncoding
@@ -1204,8 +1228,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       }
                     },
               child: isEncoding
-                  ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
-                  : const Text('Save'),
+                  ? Text('${strings.encodingData} ${(encodingPercent * 100).toInt()}%...')
+                  : Text(strings.save),
             ),
           ],
         ),
@@ -1222,21 +1246,22 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     String? overridePassword,
     required Future<void> Function(String itemPassword) onUnlocked,
   }) async {
+    final strings = AppLanguageScope.stringsOf(context);
     final passwordCtrl = TextEditingController();
     String? errorMessage;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Enter Item Password'),
+          title: Text(strings.enterItemPasswordTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Unlock "${item.topic}" to continue.'),
+              Text(strings.unlockToContinue(item.topic)),
               if (item.passwordHint.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text('Hint: ${item.passwordHint}'),
+                Text('${strings.passwordHintLabel}: ${item.passwordHint}'),
               ],
               const SizedBox(height: 12),
               TextField(
@@ -1245,7 +1270,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 enableIMEPersonalizedLearning: false,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: const InputDecoration(labelText: 'Item Password'),
+                decoration: InputDecoration(labelText: strings.itemPasswordLabel),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 8),
@@ -1262,7 +1287,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(strings.cancel),
             ),
             FilledButton(
               onPressed: () async {
@@ -1283,7 +1308,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   setDialogState(() => errorMessage = error.toString());
                 }
               },
-              child: const Text('Unlock'),
+              child: Text(strings.unlock),
             ),
           ],
         ),
@@ -1297,21 +1322,22 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     VaultTopicSummary item, {
     required Future<void> Function(String? itemPassword) onUnlocked,
   }) async {
+    final strings = AppLanguageScope.stringsOf(context);
     final passwordCtrl = TextEditingController();
     String? errorMessage;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Enter Password'),
+          title: Text(strings.enterPasswordTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Unlock "${item.topic}" to continue.'),
+              Text(strings.unlockToContinue(item.topic)),
               if (!item.hasExtraLock && item.passwordHint.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text('Password Hint: ${item.passwordHint}'),
+                Text('${strings.passwordHintLabel}: ${item.passwordHint}'),
               ],
               const SizedBox(height: 12),
               TextField(
@@ -1320,7 +1346,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 enableIMEPersonalizedLearning: false,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: InputDecoration(labelText: strings.masterPasswordLabel),
               ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 8),
@@ -1337,7 +1363,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(strings.cancel),
             ),
             OutlinedButton(
               onPressed: () async {
@@ -1356,7 +1382,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   setDialogState(() => errorMessage = error.toString());
                 }
               },
-              child: const Text('Update to Current Password'),
+              child: Text(strings.updateToCurrentPassword),
             ),
             FilledButton(
               onPressed: () async {
@@ -1375,7 +1401,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   setDialogState(() => errorMessage = error.toString());
                 }
               },
-              child: const Text('Unlock'),
+              child: Text(strings.unlock),
             ),
           ],
         ),
@@ -1396,6 +1422,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     String? itemPassword,
     String? overridePassword,
   }) {
+    final strings = AppLanguageScope.stringsOf(context);
     final filePwdCtrl = TextEditingController();
     String? sxsiPacket;
     String? errorMsg;
@@ -1410,15 +1437,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Share "${item.topic}" (.sxsi)'),
+              title: Text(strings.shareSxsiTitle(item.topic)),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Encrypts this single topic with a File Password ("SXSI" header + Argon2id + AES-256-GCM).',
-                      style: TextStyle(fontSize: 12.5),
+                    Text(
+                      strings.shareSxsiDesc,
+                      style: const TextStyle(fontSize: 12.5),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1427,16 +1454,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'File Password',
+                      decoration: InputDecoration(
+                        labelText: strings.filePasswordLabel,
                       ),
                     ),
                     if (isEncoding) ...[
                       const SizedBox(height: 12),
                       _buildEncodingProgressWidget(
+                        context,
                         percent: encodingPercent,
                         countdownSeconds: countdownSeconds,
-                        title: 'Encoding .sxsi container...',
+                        title: strings.encodingSxsiContainer,
                       ),
                     ],
                     if (sxsiPacket != null) ...[
@@ -1466,7 +1494,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close'),
+                  child: Text(strings.close),
                 ),
                 if (sxsiPacket != null)
                   OutlinedButton.icon(
@@ -1478,7 +1506,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       Navigator.of(ctx).pop();
                     },
                     icon: const Icon(Icons.copy_rounded, size: 16),
-                    label: const Text('Copy'),
+                    label: Text(strings.copy),
                   ),
                 FilledButton(
                   onPressed: isEncoding
@@ -1532,8 +1560,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                           }
                         },
                   child: isEncoding
-                      ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
-                      : const Text('Create .sxsi'),
+                      ? Text('${strings.encodingData} ${(encodingPercent * 100).toInt()}%...')
+                      : Text(strings.createSxsi),
                 ),
               ],
             );
@@ -1544,6 +1572,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   void _showImportSxsiDialog(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
     final packetCtrl = TextEditingController();
     final filePwdCtrl = TextEditingController();
     String? statusMsg;
@@ -1554,7 +1583,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Import File (.sxsi)'),
+              title: Text(strings.importSxsiTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1566,8 +1595,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: '.sxsi File Content',
+                      decoration: InputDecoration(
+                        labelText: strings.sxsiContentLabel,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1577,8 +1606,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'File Password',
+                      decoration: InputDecoration(
+                        labelText: strings.filePasswordLabel,
                       ),
                     ),
                     if (statusMsg != null) ...[
@@ -1597,7 +1626,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(strings.cancel),
                 ),
                 FilledButton(
                   onPressed: () async {
@@ -1611,7 +1640,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       setDialogState(() => statusMsg = e.toString());
                     }
                   },
-                  child: const Text('Import'),
+                  child: Text(strings.importBtn),
                 ),
               ],
             );
@@ -1622,6 +1651,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }
 
   void _showSxsBackupDialog(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
     final masterCtrl = TextEditingController(text: 'SuperSecret#2026');
     final backupPwdCtrl = TextEditingController(text: 'BackupVaultKey#2026');
     final restoreBytesCtrl = TextEditingController();
@@ -1633,15 +1663,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Backup (.sxs)'),
+              title: Text(strings.backupSxsTitle),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Full Vault Backup ("SXSV" 64B Header + Argon2id + AES-256-GCM)',
-                      style: TextStyle(fontSize: 12.5),
+                    Text(
+                      strings.backupSxsDesc,
+                      style: const TextStyle(fontSize: 12.5),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1650,8 +1680,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Verify Vault Password',
+                      decoration: InputDecoration(
+                        labelText: strings.verifyVaultPasswordLabel,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1661,8 +1691,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Backup File Password',
+                      decoration: InputDecoration(
+                        labelText: strings.backupFilePasswordLabel,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1673,8 +1703,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Restore .sxs (Base64 URL)',
+                      decoration: InputDecoration(
+                        labelText: strings.restoreSxsLabel,
                       ),
                     ),
                     if (exportStatus != null) ...[
@@ -1694,7 +1724,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close'),
+                  child: Text(strings.close),
                 ),
                 FilledButton.icon(
                   onPressed: () async {
@@ -1714,7 +1744,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     }
                   },
                   icon: const Icon(Icons.download_rounded, size: 18),
-                  label: const Text('Export .sxs'),
+                  label: Text(strings.exportSxs),
                 ),
                 OutlinedButton(
                   onPressed: () async {
@@ -1735,7 +1765,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       setDialogState(() => exportStatus = error.toString());
                     }
                   },
-                  child: const Text('Restore .sxs'),
+                  child: Text(strings.restoreSxs),
                 ),
               ],
             );

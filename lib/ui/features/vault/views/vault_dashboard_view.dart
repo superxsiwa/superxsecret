@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../domain/models/vault_models.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/platform_file_helper.dart';
 import '../../../core/widgets/scrambled_pin_pad.dart';
 import '../view_models/vault_view_model.dart';
 
@@ -1530,8 +1531,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   }) {
     final strings = AppLanguageScope.stringsOf(context);
     final filePwdCtrl = TextEditingController();
+    var obscureFilePassword = false;
     String? sxsiPacket;
     String? errorMsg;
+    String? downloadSuccessMsg;
     var isEncoding = false;
     var encodingPercent = 0.0;
     var countdownSeconds = 1.0;
@@ -1556,13 +1559,62 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: filePwdCtrl,
-                      obscureText: true,
+                      obscureText: obscureFilePassword,
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
                       decoration: InputDecoration(
                         labelText: strings.filePasswordLabel,
+                        helperText: strings.filePasswordHelper,
+                        helperMaxLines: 2,
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.auto_awesome, size: 20),
+                              tooltip: strings.generateRandomPassword,
+                              onPressed: () {
+                                final pwd = widget.viewModel
+                                    .generateRandomPassword(length: 16);
+                                setDialogState(() {
+                                  filePwdCtrl.text = pwd;
+                                });
+                              },
+                            ),
+                            if (filePwdCtrl.text.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 18),
+                                tooltip: strings.copyPasswordTooltip,
+                                onPressed: () {
+                                  widget.viewModel.copySecretWithAutoClear(
+                                    label: 'File Password',
+                                    secretValue: filePwdCtrl.text,
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(strings.passwordCopied),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                obscureFilePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  obscureFilePassword = !obscureFilePassword;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
                       ),
+                      onChanged: (_) => setDialogState(() {}),
                     ),
                     if (isEncoding) ...[
                       const SizedBox(height: 12),
@@ -1571,6 +1623,39 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         percent: encodingPercent,
                         countdownSeconds: countdownSeconds,
                         title: strings.encodingSxsiContainer,
+                      ),
+                    ],
+                    if (downloadSuccessMsg != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emeraldSecure.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.emeraldSecure.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle_outline,
+                              color: AppTheme.emeraldSecure,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                downloadSuccessMsg!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.emeraldSecure,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                     if (sxsiPacket != null) ...[
@@ -1602,7 +1687,23 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: Text(strings.close),
                 ),
-                if (sxsiPacket != null)
+                if (sxsiPacket != null) ...[
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      final safeTopic = item.topic
+                          .replaceAll(RegExp(r'[^\w\s-]'), '_')
+                          .trim();
+                      final fileName =
+                          '${safeTopic.isEmpty ? "secret" : safeTopic}.sxsi';
+                      PlatformFileHelper.downloadFile(
+                        fileName: fileName,
+                        bytes: utf8.encode(sxsiPacket!),
+                        mimeType: 'application/octet-stream',
+                      );
+                    },
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    label: Text(strings.downloadFileBtn),
+                  ),
                   OutlinedButton.icon(
                     onPressed: () {
                       widget.viewModel.copySecretWithAutoClear(
@@ -1614,13 +1715,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     icon: const Icon(Icons.copy_rounded, size: 16),
                     label: Text(strings.copy),
                   ),
+                ],
                 FilledButton(
                   onPressed: isEncoding
                       ? null
                       : () async {
                           if (filePwdCtrl.text.trim().isEmpty) {
                             setDialogState(() {
-                              errorMsg = 'File Password is required.';
+                              errorMsg = strings.filePasswordLabel;
                             });
                             return;
                           }
@@ -1628,6 +1730,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                           setDialogState(() {
                             isEncoding = true;
                             errorMsg = null;
+                            downloadSuccessMsg = null;
                             encodingPercent = 0.0;
                             countdownSeconds = estimatedMs / 1000.0;
                           });
@@ -1652,10 +1755,25 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                               overridePassword: overridePassword,
                             );
                             tracker?.complete();
+
+                            // Automatically trigger download of the .sxsi file
+                            final safeTopic = item.topic
+                                .replaceAll(RegExp(r'[^\w\s-]'), '_')
+                                .trim();
+                            final fileName =
+                                '${safeTopic.isEmpty ? "secret" : safeTopic}.sxsi';
+                            PlatformFileHelper.downloadFile(
+                              fileName: fileName,
+                              bytes: utf8.encode(packet),
+                              mimeType: 'application/octet-stream',
+                            );
+
                             setDialogState(() {
                               isEncoding = false;
                               sxsiPacket = packet;
                               errorMsg = null;
+                              downloadSuccessMsg =
+                                  strings.downloadSuccess(fileName);
                             });
                           } catch (e) {
                             tracker?.dispose();
@@ -1695,6 +1813,27 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final fileContent =
+                              await PlatformFileHelper.pickFileText(
+                            allowedExtensions: ['sxsi', 'txt'],
+                          );
+                          if (fileContent != null && fileContent.isNotEmpty) {
+                            setDialogState(() {
+                              packetCtrl.text = fileContent.trim();
+                              statusMsg = null;
+                            });
+                          }
+                        } catch (e) {
+                          setDialogState(() => statusMsg = e.toString());
+                        }
+                      },
+                      icon: const Icon(Icons.folder_open_rounded, size: 18),
+                      label: Text(strings.pickFileBtn),
+                    ),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: packetCtrl,
                       maxLines: 3,
@@ -1737,11 +1876,25 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 FilledButton(
                   onPressed: () async {
                     try {
-                      await widget.viewModel.importSingleItemSxsi(
+                      final imported =
+                          await widget.viewModel.importSingleItemSxsi(
                         sxsiPacket: packetCtrl.text,
                         filePassword: filePwdCtrl.text,
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AppTheme.emeraldSecure,
+                            content: Text(
+                              strings.importSuccessWithCipher(
+                                imported.topic,
+                                imported.cipherType.badgeLabel,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
                     } catch (e) {
                       setDialogState(() => statusMsg = e.toString());
                     }
@@ -1802,6 +1955,23 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
                     ),
                     const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final bytes = await PlatformFileHelper.pickFileBytes(
+                            allowedExtensions: ['sxs', 'bin'],
+                          );
+                          if (bytes != null && bytes.isNotEmpty) {
+                            setDialogState(() {
+                              restoreBytesCtrl.text = base64Url.encode(bytes);
+                            });
+                          }
+                        } catch (_) {}
+                      },
+                      icon: const Icon(Icons.folder_open_rounded, size: 18),
+                      label: Text(strings.pickFileBtn),
+                    ),
+                    const SizedBox(height: 6),
                     TextField(
                       controller: restoreBytesCtrl,
                       minLines: 2,
@@ -1840,8 +2010,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         masterPasswordVerification: masterCtrl.text,
                         backupFilePassword: backupPwdCtrl.text,
                       );
+                      PlatformFileHelper.downloadFile(
+                        fileName: 'superxsecret_vault_backup.sxs',
+                        bytes: bytes,
+                        mimeType: 'application/octet-stream',
+                      );
                       setDialogState(() {
-                        exportStatus = base64Url.encode(bytes);
+                        exportStatus = strings.downloadSuccess(
+                          'superxsecret_vault_backup.sxs',
+                        );
                       });
                     } catch (e) {
                       setDialogState(() {

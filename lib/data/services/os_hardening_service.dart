@@ -40,9 +40,11 @@ class OsHardeningService {
         'ttlSeconds': ttlSeconds,
       });
     } on MissingPluginException {
-      // Fallback for desktop widget tests
-      await Clipboard.setData(ClipboardData(text: secret));
-    }
+      // Fallback for web and desktop
+      try {
+        await Clipboard.setData(ClipboardData(text: secret));
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Immediately wipes the system clipboard.
@@ -50,8 +52,10 @@ class OsHardeningService {
     try {
       await _channel.invokeMethod<bool>('clearClipboardNow');
     } on MissingPluginException {
-      await Clipboard.setData(const ClipboardData(text: ''));
-    }
+      try {
+        await Clipboard.setData(const ClipboardData(text: ''));
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Inspects Root/Jailbreak, Frida/Debugger, Screen Guard, and Zero-Network status.

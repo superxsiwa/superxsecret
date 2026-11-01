@@ -141,6 +141,15 @@ class AppStrings {
     required this.shareSxsiTitle,
     required this.shareSxsiDesc,
     required this.filePasswordLabel,
+    required this.filePasswordHelper,
+    required this.generateRandomPassword,
+    required this.downloadFileBtn,
+    required this.downloadSuccess,
+    required this.pickFileBtn,
+    required this.downloadSxsBtn,
+    required this.importSuccessWithCipher,
+    required this.copyPasswordTooltip,
+    required this.passwordCopied,
     required this.createSxsi,
     required this.importSxsiTitle,
     required this.sxsiContentLabel,
@@ -243,6 +252,15 @@ class AppStrings {
   final String Function(String topic) shareSxsiTitle;
   final String shareSxsiDesc;
   final String filePasswordLabel;
+  final String filePasswordHelper;
+  final String generateRandomPassword;
+  final String downloadFileBtn;
+  final String Function(String fileName) downloadSuccess;
+  final String pickFileBtn;
+  final String downloadSxsBtn;
+  final String Function(String topic, String cipher) importSuccessWithCipher;
+  final String copyPasswordTooltip;
+  final String passwordCopied;
   final String createSxsi;
   final String importSxsiTitle;
   final String sxsiContentLabel;
@@ -342,8 +360,18 @@ class AppStrings {
     updateToCurrentPassword: 'Update to Current Password',
     shareSxsiTitle: (topic) => 'Share "$topic" (.sxsi)',
     shareSxsiDesc:
-        'Encrypts this single topic with a File Password ("SXSI" header + Argon2id + AES-256-GCM).',
-    filePasswordLabel: 'File Password',
+        'Set a password to lock this shared file. The recipient will need this password to import it.',
+    filePasswordLabel: 'File Password (set for recipient)',
+    filePasswordHelper: 'Create a password for this file',
+    generateRandomPassword: 'Random Password',
+    downloadFileBtn: 'Download .sxsi File',
+    downloadSuccess: (name) => 'File "$name" downloaded successfully.',
+    pickFileBtn: 'Choose File (.sxsi)',
+    downloadSxsBtn: 'Download .sxs Backup',
+    importSuccessWithCipher: (topic, cipher) =>
+        'Imported "$topic" successfully (Cipher: $cipher)',
+    copyPasswordTooltip: 'Copy File Password',
+    passwordCopied: 'File Password copied to clipboard',
     createSxsi: 'Create .sxsi',
     importSxsiTitle: 'Import File (.sxsi)',
     sxsiContentLabel: '.sxsi File Content',
@@ -445,8 +473,18 @@ class AppStrings {
     updateToCurrentPassword: 'อัปเดตเป็นรหัสผ่านปัจจุบัน',
     shareSxsiTitle: (topic) => 'แชร์ "$topic" (.sxsi)',
     shareSxsiDesc:
-        'เข้ารหัสรายการนี้เดี่ยวๆ ด้วยรหัสผ่านไฟล์ ("SXSI" + Argon2id + AES-256-GCM)',
-    filePasswordLabel: 'รหัสผ่านไฟล์ (File Password)',
+        'กำหนดรหัสผ่านใหม่เพื่อล็อกไฟล์แชร์นี้ (ผู้รับจะต้องใช้รหัสผ่านนี้ในการเปิดนำเข้าไฟล์)',
+    filePasswordLabel: 'รหัสผ่านไฟล์ (กำหนดเพื่อให้ผู้รับใช้เปิด)',
+    filePasswordHelper: 'ตั้งรหัสผ่านใหม่เฉพาะสำหรับไฟล์นี้',
+    generateRandomPassword: 'สุ่มรหัสผ่าน',
+    downloadFileBtn: 'ดาวน์โหลดไฟล์ .sxsi',
+    downloadSuccess: (name) => 'ดาวน์โหลดไฟล์ "$name" เรียบร้อยแล้ว',
+    pickFileBtn: 'เลือกไฟล์ (.sxsi)',
+    downloadSxsBtn: 'ดาวน์โหลดไฟล์สำรอง .sxs',
+    importSuccessWithCipher: (topic, cipher) =>
+        'นำเข้า "$topic" สำเร็จแล้ว (รูปแบบการเข้ารหัส: $cipher)',
+    copyPasswordTooltip: 'คัดลอกรหัสผ่านไฟล์',
+    passwordCopied: 'คัดลอกรหัสผ่านไฟล์เรียบร้อยแล้ว',
     createSxsi: 'สร้างไฟล์ .sxsi',
     importSxsiTitle: 'นำเข้าไฟล์ (.sxsi)',
     sxsiContentLabel: 'เนื้อหาไฟล์ .sxsi (Base64)',

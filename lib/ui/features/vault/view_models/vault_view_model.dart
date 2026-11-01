@@ -105,6 +105,14 @@ class VaultViewModel extends ChangeNotifier {
     return created;
   }
 
+  Future<void> deleteTopic(String itemUuid) async {
+    await _vaultRepository.deleteTopic(itemUuid);
+    if (_activeRevealedSecret?.itemUuid == itemUuid) {
+      hideAndZeroizeRevealedSecret();
+    }
+    await loadVaultSummaries();
+  }
+
   Future<void> updateItemPassword({
     required String itemUuid,
     required String currentItemPassword,

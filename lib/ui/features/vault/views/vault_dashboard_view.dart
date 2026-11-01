@@ -259,8 +259,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Item lock',
-                  onSelected: (action) => _manageItemLock(item, action),
+                  tooltip: 'Options',
+                  onSelected: (action) {
+                    if (action == 'delete') {
+                      _confirmDeleteItem(item);
+                    } else {
+                      _manageItemLock(item, action);
+                    }
+                  },
                   itemBuilder: (context) => [
                     if (!item.hasExtraLock)
                       const PopupMenuItem(
@@ -277,6 +283,24 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         child: Text('Remove Extra Lock'),
                       ),
                     ],
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: AppTheme.crimsonAlert,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete Item',
+                            style: TextStyle(color: AppTheme.crimsonAlert),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                   icon: const Icon(
                     Icons.verified_user_outlined,
@@ -293,14 +317,21 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             ),
             const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                IconButton(
+                  tooltip: 'Delete',
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  color: AppTheme.crimsonAlert.withValues(alpha: 0.8),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _confirmDeleteItem(item),
+                ),
+                const Spacer(),
                 OutlinedButton.icon(
                   onPressed: () => _shareItem(item),
                   icon: const Icon(Icons.ios_share_rounded, size: 15),
                   label: const Text('Share', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 FilledButton.tonalIcon(
                   style: FilledButton.styleFrom(
                     backgroundColor:
@@ -856,6 +887,50 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         }
       },
     );
+  }
+
+  Future<void> _confirmDeleteItem(
+    VaultTopicSummary item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: Text(
+          'Are you sure you want to permanently delete "${item.topic}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.crimsonAlert,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await widget.viewModel.deleteTopic(item.itemUuid);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Deleted "${item.topic}"'),
+              backgroundColor: AppTheme.surfaceCard,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) _showActionError(context, e);
+      }
+    }
   }
 
   Future<void> _showItemLockSetupDialog(

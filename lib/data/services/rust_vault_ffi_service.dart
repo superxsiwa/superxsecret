@@ -522,6 +522,21 @@ class RustVaultFfiService {
     return summary;
   }
 
+  /// Deletes a topic and its associated encrypted secrets from the active vault.
+  Future<void> deleteTopic(String itemUuid) async {
+    final mode = _activeSessionMode;
+    if (mode == null) {
+      throw StateError('Vault is locked');
+    }
+    final summaries = _summariesFor(mode);
+    summaries.removeWhere((item) => item.itemUuid == itemUuid);
+    _encryptedSecretsFor(mode).remove(itemUuid);
+    final legacySecrets = mode == VaultSessionMode.secondaryVault
+        ? _legacySecondarySecretTexts
+        : _legacyMainSecretTexts;
+    legacySecrets.remove(itemUuid);
+  }
+
   List<VaultTopicSummary> _summariesFor(VaultSessionMode mode) {
     return mode == VaultSessionMode.secondaryVault
         ? _secondarySummaries

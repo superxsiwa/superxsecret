@@ -144,6 +144,10 @@ class VaultRepository {
     );
   }
 
+  Future<void> deleteTopic(String itemUuid) {
+    return _rustFfiService.deleteTopic(itemUuid);
+  }
+
   String generateStrongPassword({int length = 20}) {
     return _rustFfiService.generateStrongPassword(length: length);
   }

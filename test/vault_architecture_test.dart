@@ -64,6 +64,22 @@ void main() {
       expect(decoded.secretText, equals('ghp_OfflineZeroKnowledgeToken2026'));
     });
 
+    test('Deleting a topic removes summary and encrypted secret cleanly',
+        () async {
+      await repository.unlockVault('SuperSecret#2026');
+
+      final summary = await repository.saveTopic(
+        topic: 'Temporary Item',
+        secretText: 'temp secret to be deleted',
+      );
+      var items = await repository.fetchVaultSummaries();
+      expect(items.any((item) => item.itemUuid == summary.itemUuid), isTrue);
+
+      await repository.deleteTopic(summary.itemUuid);
+      items = await repository.fetchVaultSummaries();
+      expect(items.any((item) => item.itemUuid == summary.itemUuid), isFalse);
+    });
+
     test('First reveal migrates a legacy item without decrypting it twice',
         () async {
       await repository.unlockVault('LegacyMigrationPassword1');

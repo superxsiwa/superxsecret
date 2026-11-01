@@ -93,6 +93,7 @@ class VaultViewModel extends ChangeNotifier {
     bool hasExtraLock = false,
     String? itemPassword,
     String passwordHint = '',
+    VaultCipherType cipherType = VaultCipherType.aes256Gcm,
   }) async {
     final created = await _vaultRepository.saveTopic(
       topic: topic,
@@ -100,6 +101,7 @@ class VaultViewModel extends ChangeNotifier {
       hasExtraLock: hasExtraLock,
       itemPassword: itemPassword,
       passwordHint: passwordHint,
+      cipherType: cipherType,
     );
     await loadVaultSummaries();
     return created;

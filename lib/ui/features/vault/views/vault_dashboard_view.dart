@@ -273,7 +273,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '•••••••••••• • AES-256-GCM',
+                        '•••••••••••• • ${item.cipherType.badgeLabel}',
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -566,6 +566,21 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
+  String _cipherTypeName(VaultCipherType cipher, AppStrings strings) {
+    switch (cipher) {
+      case VaultCipherType.aes256Gcm:
+        return strings.cipherAes256Gcm;
+      case VaultCipherType.chacha20Poly1305:
+        return strings.cipherChaCha20Poly1305;
+      case VaultCipherType.xchacha20Poly1305:
+        return strings.cipherXChaCha20Poly1305;
+      case VaultCipherType.aes256CbcHmacSha512:
+        return strings.cipherAes256CbcHmacSha512;
+      case VaultCipherType.dualCipher:
+        return strings.cipherDual;
+    }
+  }
+
   Future<void> _showNewTopicDialog(BuildContext context) async {
     final strings = AppLanguageScope.stringsOf(context);
     final topicCtrl = TextEditingController();
@@ -573,6 +588,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     final hintCtrl = TextEditingController();
     final itemPasswordCtrl = TextEditingController();
     final confirmPasswordCtrl = TextEditingController();
+    var selectedCipher = VaultCipherType.aes256Gcm;
     var hasExtraLock = false;
     var passwordEntropyBits = 0.0;
     String? errorMsg;
@@ -612,6 +628,29 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       decoration: InputDecoration(
                         labelText: strings.secretTextFieldLabel,
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<VaultCipherType>(
+                      initialValue: selectedCipher,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: strings.encryptionMethod,
+                        isDense: true,
+                      ),
+                      items: VaultCipherType.values.map((cipher) {
+                        return DropdownMenuItem<VaultCipherType>(
+                          value: cipher,
+                          child: Text(
+                            _cipherTypeName(cipher, strings),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedCipher = val);
+                        }
+                      },
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -756,6 +795,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                               itemPassword:
                                   hasExtraLock ? itemPasswordCtrl.text : null,
                               passwordHint: hintCtrl.text,
+                              cipherType: selectedCipher,
                             );
                             tracker?.complete();
                             await Future<void>.delayed(

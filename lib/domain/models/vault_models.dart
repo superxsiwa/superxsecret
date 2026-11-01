@@ -28,6 +28,29 @@ class DeviceSecurityPosture {
   final bool sqlCipherActive;
 }
 
+enum VaultCipherType {
+  aes256Gcm,
+  chacha20Poly1305,
+  xchacha20Poly1305,
+  aes256CbcHmacSha512,
+  dualCipher;
+
+  String get badgeLabel {
+    switch (this) {
+      case VaultCipherType.aes256Gcm:
+        return 'AES-256-GCM';
+      case VaultCipherType.chacha20Poly1305:
+        return 'ChaCha20-Poly1305';
+      case VaultCipherType.xchacha20Poly1305:
+        return 'XChaCha20-Poly1305';
+      case VaultCipherType.aes256CbcHmacSha512:
+        return 'AES-256-CBC + SHA512';
+      case VaultCipherType.dualCipher:
+        return 'Dual (AES + XChaCha20)';
+    }
+  }
+}
+
 class VaultTopicSummary {
   const VaultTopicSummary({
     required this.itemUuid,
@@ -35,6 +58,7 @@ class VaultTopicSummary {
     required this.updatedAt,
     this.hasExtraLock = false,
     this.passwordHint = '',
+    this.cipherType = VaultCipherType.aes256Gcm,
   });
 
   final String itemUuid;
@@ -42,6 +66,7 @@ class VaultTopicSummary {
   final DateTime updatedAt;
   final bool hasExtraLock;
   final String passwordHint;
+  final VaultCipherType cipherType;
 }
 
 class DecodedTopicSecret {
@@ -51,6 +76,7 @@ class DecodedTopicSecret {
     required this.secretText,
     this.hasExtraLock = false,
     this.passwordHint = '',
+    this.cipherType = VaultCipherType.aes256Gcm,
   });
 
   final String itemUuid;
@@ -58,6 +84,7 @@ class DecodedTopicSecret {
   final String secretText;
   final bool hasExtraLock;
   final String passwordHint;
+  final VaultCipherType cipherType;
 }
 
 class ItemLockedException extends StateError {

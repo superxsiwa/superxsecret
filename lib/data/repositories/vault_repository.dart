@@ -134,6 +134,7 @@ class VaultRepository {
     bool hasExtraLock = false,
     String? itemPassword,
     String passwordHint = '',
+    VaultCipherType cipherType = VaultCipherType.aes256Gcm,
   }) {
     return _rustFfiService.createNewTopic(
       topic: topic,
@@ -141,6 +142,7 @@ class VaultRepository {
       hasExtraLock: hasExtraLock,
       itemPassword: itemPassword,
       passwordHint: passwordHint,
+      cipherType: cipherType,
     );
   }
 

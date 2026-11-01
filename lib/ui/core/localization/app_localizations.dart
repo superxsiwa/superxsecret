@@ -118,6 +118,12 @@ class AppStrings {
     required this.newTopicTitle,
     required this.topicFieldLabel,
     required this.secretTextFieldLabel,
+    required this.encryptionMethod,
+    required this.cipherAes256Gcm,
+    required this.cipherChaCha20Poly1305,
+    required this.cipherXChaCha20Poly1305,
+    required this.cipherAes256CbcHmacSha512,
+    required this.cipherDual,
     required this.extraLockSwitch,
     required this.extraLockSub,
     required this.itemPasswordLabel,
@@ -214,6 +220,12 @@ class AppStrings {
   final String newTopicTitle;
   final String topicFieldLabel;
   final String secretTextFieldLabel;
+  final String encryptionMethod;
+  final String cipherAes256Gcm;
+  final String cipherChaCha20Poly1305;
+  final String cipherXChaCha20Poly1305;
+  final String cipherAes256CbcHmacSha512;
+  final String cipherDual;
   final String extraLockSwitch;
   final String extraLockSub;
   final String itemPasswordLabel;
@@ -307,6 +319,12 @@ class AppStrings {
     newTopicTitle: 'New Topic',
     topicFieldLabel: 'Topic',
     secretTextFieldLabel: 'Secret Text',
+    encryptionMethod: 'Encryption Method',
+    cipherAes256Gcm: 'AES-256-GCM (NIST Standard)',
+    cipherChaCha20Poly1305: 'ChaCha20-Poly1305 (High-Speed)',
+    cipherXChaCha20Poly1305: 'XChaCha20-Poly1305 (Extended Nonce)',
+    cipherAes256CbcHmacSha512: 'AES-256-CBC + HMAC-SHA512',
+    cipherDual: 'Dual-Cipher (AES-256 + XChaCha20)',
     extraLockSwitch: '🔒 Extra Lock (Separate Password)',
     extraLockSub: 'Require a separate password to reveal this item.',
     itemPasswordLabel: 'Item Password',
@@ -404,6 +422,12 @@ class AppStrings {
     newTopicTitle: 'สร้างรายการใหม่',
     topicFieldLabel: 'หัวข้อ (Topic)',
     secretTextFieldLabel: 'ข้อความความลับ (Secret Text)',
+    encryptionMethod: 'วิธีการเข้ารหัส (Cipher)',
+    cipherAes256Gcm: 'AES-256-GCM (มาตรฐานหลักสากล)',
+    cipherChaCha20Poly1305: 'ChaCha20-Poly1305 (ความเร็วสูง / Google)',
+    cipherXChaCha20Poly1305: 'XChaCha20-Poly1305 (สุ่ม Nonce 192-bit ปลอดภัยสูง)',
+    cipherAes256CbcHmacSha512: 'AES-256-CBC + SHA512 (ตรวจจับการปลอมแปลง 512-bit)',
+    cipherDual: 'Dual-Cipher (เข้ารหัสซ้อน 2 ชั้น ป้องกันขั้นสูงสุด)',
     extraLockSwitch: '🔒 รหัสล็อกชั้นที่สอง (Extra Lock)',
     extraLockSub: 'ต้องใช้รหัสผ่านเฉพาะรายการนี้ในการเปิดดูข้อมูล',
     itemPasswordLabel: 'รหัสผ่านเฉพาะรายการ',

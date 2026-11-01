@@ -73,7 +73,25 @@ class RustVaultFfiService {
   final Map<String, _EncryptedSecret> _mainEncryptedSecrets = {};
   final Map<String, _EncryptedSecret> _secondaryEncryptedSecrets = {};
   static final _passwordHkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
-  static final _itemCipher = AesGcm.with256bits();
+  static final _aesGcmCipher = AesGcm.with256bits();
+  static final _chachaCipher = Chacha20.poly1305Aead();
+  static final _xchachaCipher = Xchacha20.poly1305Aead();
+  static final _aesCbcCipher = AesCbc.with256bits(macAlgorithm: Hmac.sha512());
+  static final _itemCipher = _aesGcmCipher;
+
+  static int _nonceLengthFor(VaultCipherType cipherType) {
+    switch (cipherType) {
+      case VaultCipherType.aes256Gcm:
+      case VaultCipherType.chacha20Poly1305:
+        return 12;
+      case VaultCipherType.xchacha20Poly1305:
+        return 24;
+      case VaultCipherType.aes256CbcHmacSha512:
+        return 16;
+      case VaultCipherType.dualCipher:
+        return 12;
+    }
+  }
 
   static final List<int> _masterSeedSalt = Uint8List.fromList(
     utf8.encode('superxsecret.v1.master_seed.salt'),
@@ -307,6 +325,7 @@ class RustVaultFfiService {
       secretText: secretText,
       hasExtraLock: summary.hasExtraLock,
       passwordHint: summary.passwordHint,
+      cipherType: summary.cipherType,
     );
   }
 
@@ -371,6 +390,7 @@ class RustVaultFfiService {
       hasExtraLock: summary.hasExtraLock,
       passwordHint:
           summary.hasExtraLock ? summary.passwordHint : _activePasswordHint,
+      cipherType: summary.cipherType,
     );
     _encryptedSecretsFor(mode)[itemUuid] = await _encryptOuterPayload(
       itemUuid: itemUuid,
@@ -378,6 +398,7 @@ class RustVaultFfiService {
       password: _activeSessionPassword,
       hasExtraLock: encryptedSecret.hasExtraLock,
       itemLockSalt: encryptedSecret.itemLockSalt,
+      cipherType: summary.cipherType,
     );
     summaries[summaries.indexOf(summary)] = updatedSummary;
   }
@@ -423,6 +444,7 @@ class RustVaultFfiService {
       updatedAt: DateTime.now(),
       hasExtraLock: true,
       passwordHint: passwordHint.trim(),
+      cipherType: summary.cipherType,
     );
     _encryptedSecretsFor(mode)[itemUuid] = await _encryptItemSecret(
       itemUuid: itemUuid,
@@ -430,6 +452,7 @@ class RustVaultFfiService {
       password: _activeSessionPassword,
       hasExtraLock: true,
       itemPassword: newItemPassword,
+      cipherType: summary.cipherType,
     );
     summaries[summaries.indexOf(summary)] = updatedSummary;
   }
@@ -464,12 +487,14 @@ class RustVaultFfiService {
       itemUuid: itemUuid,
       secretText: secretText,
       password: _activeSessionPassword,
+      cipherType: summary.cipherType,
     );
     summaries[summaries.indexOf(summary)] = VaultTopicSummary(
       itemUuid: summary.itemUuid,
       topic: summary.topic,
       updatedAt: DateTime.now(),
       passwordHint: _activePasswordHint,
+      cipherType: summary.cipherType,
     );
   }
 
@@ -480,6 +505,7 @@ class RustVaultFfiService {
     bool hasExtraLock = false,
     String? itemPassword,
     String passwordHint = '',
+    VaultCipherType cipherType = VaultCipherType.aes256Gcm,
   }) async {
     final mode = _activeSessionMode;
     if (mode == null) {
@@ -509,6 +535,7 @@ class RustVaultFfiService {
       passwordHint: passwordHint.trim().isEmpty
           ? _activePasswordHint
           : passwordHint.trim(),
+      cipherType: cipherType,
     );
     final encryptedSecret = await _encryptItemSecret(
       itemUuid: uuid,
@@ -516,6 +543,7 @@ class RustVaultFfiService {
       password: _activeSessionPassword,
       hasExtraLock: hasExtraLock,
       itemPassword: itemPassword,
+      cipherType: cipherType,
     );
     _encryptedSecretsFor(mode)[uuid] = encryptedSecret;
     _summariesFor(mode).insert(0, summary);
@@ -585,6 +613,7 @@ class RustVaultFfiService {
     required String password,
     bool hasExtraLock = false,
     String? itemPassword,
+    VaultCipherType cipherType = VaultCipherType.aes256Gcm,
   }) async {
     var encryptedPayload = utf8.encode(secretText);
     List<int>? itemLockSalt;
@@ -618,6 +647,7 @@ class RustVaultFfiService {
       password: password,
       hasExtraLock: hasExtraLock,
       itemLockSalt: itemLockSalt,
+      cipherType: cipherType,
     );
   }
 
@@ -627,21 +657,89 @@ class RustVaultFfiService {
     required String password,
     required bool hasExtraLock,
     required List<int>? itemLockSalt,
+    VaultCipherType cipherType = VaultCipherType.aes256Gcm,
   }) async {
     final random = math.Random.secure();
     final salt = List<int>.generate(32, (_) => random.nextInt(256));
-    final nonce = List<int>.generate(12, (_) => random.nextInt(256));
     final key = await _derivePasswordKey(
       password,
       salt,
       'superxsecret.v1.field.aead_key',
     );
-    final box = await _itemCipher.encrypt(
-      encryptedPayload,
-      secretKey: key,
-      nonce: nonce,
-      aad: _topicAad(itemUuid),
-    );
+    final aad = _topicAad(itemUuid);
+
+    if (cipherType == VaultCipherType.dualCipher) {
+      final key2 = await _derivePasswordKey(
+        password,
+        salt,
+        'superxsecret.v1.field.dual_key',
+      );
+      final innerNonce = List<int>.generate(24, (_) => random.nextInt(256));
+      final innerBox = await _xchachaCipher.encrypt(
+        encryptedPayload,
+        secretKey: key2,
+        nonce: innerNonce,
+        aad: aad,
+      );
+      final packedInner = [
+        ...innerBox.nonce,
+        ...innerBox.cipherText,
+        ...innerBox.mac.bytes,
+      ];
+      final outerNonce = List<int>.generate(12, (_) => random.nextInt(256));
+      final outerBox = await _aesGcmCipher.encrypt(
+        packedInner,
+        secretKey: key,
+        nonce: outerNonce,
+        aad: aad,
+      );
+      return _EncryptedSecret(
+        salt: salt,
+        nonce: outerNonce,
+        cipherText: outerBox.cipherText,
+        mac: outerBox.mac.bytes,
+        hasExtraLock: hasExtraLock,
+        itemLockSalt: itemLockSalt,
+        cipherType: cipherType,
+      );
+    }
+
+    final nonceLength = _nonceLengthFor(cipherType);
+    final nonce = List<int>.generate(nonceLength, (_) => random.nextInt(256));
+    final SecretBox box;
+    switch (cipherType) {
+      case VaultCipherType.aes256Gcm:
+        box = await _aesGcmCipher.encrypt(
+          encryptedPayload,
+          secretKey: key,
+          nonce: nonce,
+          aad: aad,
+        );
+      case VaultCipherType.chacha20Poly1305:
+        box = await _chachaCipher.encrypt(
+          encryptedPayload,
+          secretKey: key,
+          nonce: nonce,
+          aad: aad,
+        );
+      case VaultCipherType.xchacha20Poly1305:
+        box = await _xchachaCipher.encrypt(
+          encryptedPayload,
+          secretKey: key,
+          nonce: nonce,
+          aad: aad,
+        );
+      case VaultCipherType.aes256CbcHmacSha512:
+        box = await _aesCbcCipher.encrypt(
+          encryptedPayload,
+          secretKey: key,
+          nonce: nonce,
+          aad: aad,
+        );
+      case VaultCipherType.dualCipher:
+        throw UnimplementedError();
+    }
+
     return _EncryptedSecret(
       salt: salt,
       nonce: nonce,
@@ -649,6 +747,7 @@ class RustVaultFfiService {
       mac: box.mac.bytes,
       hasExtraLock: hasExtraLock,
       itemLockSalt: itemLockSalt,
+      cipherType: cipherType,
     );
   }
 
@@ -668,6 +767,7 @@ class RustVaultFfiService {
           itemUuid: summary.itemUuid,
           secretText: legacySecret,
           password: _activeSessionPassword,
+          cipherType: summary.cipherType,
         );
         encryptedSecrets[summary.itemUuid] = encryptedSecret;
       }
@@ -699,17 +799,57 @@ class RustVaultFfiService {
       encryptedSecret.salt,
       'superxsecret.v1.field.aead_key',
     );
+    final aad = _topicAad(itemUuid);
+
     try {
-      final bytes = await _itemCipher.decrypt(
-        SecretBox(
-          encryptedSecret.cipherText,
-          nonce: encryptedSecret.nonce,
-          mac: Mac(encryptedSecret.mac),
-        ),
-        secretKey: key,
-        aad: _topicAad(itemUuid),
+      if (encryptedSecret.cipherType == VaultCipherType.dualCipher) {
+        final outerBytes = await _aesGcmCipher.decrypt(
+          SecretBox(
+            encryptedSecret.cipherText,
+            nonce: encryptedSecret.nonce,
+            mac: Mac(encryptedSecret.mac),
+          ),
+          secretKey: key,
+          aad: aad,
+        );
+        if (outerBytes.length < 40) {
+          throw VaultItemPasswordException(passwordHint);
+        }
+        final key2 = await _derivePasswordKey(
+          password,
+          encryptedSecret.salt,
+          'superxsecret.v1.field.dual_key',
+        );
+        final innerBox = SecretBox(
+          outerBytes.sublist(24, outerBytes.length - 16),
+          nonce: outerBytes.sublist(0, 24),
+          mac: Mac(outerBytes.sublist(outerBytes.length - 16)),
+        );
+        return await _xchachaCipher.decrypt(
+          innerBox,
+          secretKey: key2,
+          aad: aad,
+        );
+      }
+
+      final box = SecretBox(
+        encryptedSecret.cipherText,
+        nonce: encryptedSecret.nonce,
+        mac: Mac(encryptedSecret.mac),
       );
-      return bytes;
+
+      switch (encryptedSecret.cipherType) {
+        case VaultCipherType.aes256Gcm:
+          return await _aesGcmCipher.decrypt(box, secretKey: key, aad: aad);
+        case VaultCipherType.chacha20Poly1305:
+          return await _chachaCipher.decrypt(box, secretKey: key, aad: aad);
+        case VaultCipherType.xchacha20Poly1305:
+          return await _xchachaCipher.decrypt(box, secretKey: key, aad: aad);
+        case VaultCipherType.aes256CbcHmacSha512:
+          return await _aesCbcCipher.decrypt(box, secretKey: key, aad: aad);
+        case VaultCipherType.dualCipher:
+          throw UnimplementedError();
+      }
     } on SecretBoxAuthenticationError {
       throw VaultItemPasswordException(passwordHint);
     }
@@ -785,6 +925,7 @@ class RustVaultFfiService {
     final payloadMap = {
       'topic': decoded.topic,
       'secretText': decoded.secretText,
+      'cipherType': decoded.cipherType.name,
       'exportedAt': DateTime.now().toIso8601String(),
     };
     final plainBytes = utf8.encode(jsonEncode(payloadMap));
@@ -826,9 +967,15 @@ class RustVaultFfiService {
     );
 
     final map = jsonDecode(utf8.decode(plainBytes)) as Map<String, dynamic>;
+    final cipherTypeName = map['cipherType'] as String?;
+    final cipherType = VaultCipherType.values.firstWhere(
+      (c) => c.name == cipherTypeName,
+      orElse: () => VaultCipherType.aes256Gcm,
+    );
     return createNewTopic(
       topic: (map['topic'] as String?) ?? 'Imported Topic',
       secretText: (map['secretText'] as String?) ?? '',
+      cipherType: cipherType,
     );
   }
 
@@ -894,6 +1041,7 @@ class RustVaultFfiService {
           'updatedAt': summary.updatedAt.toIso8601String(),
           'hasExtraLock': summary.hasExtraLock,
           'passwordHint': summary.passwordHint,
+          'cipherType': summary.cipherType.name,
           'itemLockSalt': encrypted.itemLockSalt == null
               ? null
               : base64Url.encode(encrypted.itemLockSalt!),
@@ -906,6 +1054,7 @@ class RustVaultFfiService {
             'itemLockSalt': encrypted.itemLockSalt == null
                 ? null
                 : base64Url.encode(encrypted.itemLockSalt!),
+            'cipherType': encrypted.cipherType.name,
           },
         };
       }).toList(),
@@ -956,12 +1105,19 @@ class RustVaultFfiService {
       if (hasExtraLock && (itemLockSalt == null || itemLockSalt.length != 32)) {
         throw StateError('Invalid item lock salt in .sxs backup');
       }
+      final cipherTypeName =
+          (raw['cipherType'] ?? secret['cipherType']) as String?;
+      final cipherType = VaultCipherType.values.firstWhere(
+        (c) => c.name == cipherTypeName,
+        orElse: () => VaultCipherType.aes256Gcm,
+      );
       restoredSummaries.add(VaultTopicSummary(
         itemUuid: uuid,
         topic: raw['topic'] as String,
         updatedAt: DateTime.parse(raw['updatedAt'] as String),
         hasExtraLock: hasExtraLock,
         passwordHint: raw['passwordHint'] as String? ?? '',
+        cipherType: cipherType,
       ));
       restoredSecrets[uuid] = _EncryptedSecret(
         salt: base64Url.decode(secret['salt'] as String),
@@ -970,6 +1126,7 @@ class RustVaultFfiService {
         mac: base64Url.decode(secret['mac'] as String),
         hasExtraLock: secret['hasExtraLock'] as bool? ?? hasExtraLock,
         itemLockSalt: itemLockSalt,
+        cipherType: cipherType,
       );
     }
     _summariesFor(mode)
@@ -1106,6 +1263,7 @@ class _EncryptedSecret {
     required this.mac,
     required this.hasExtraLock,
     required this.itemLockSalt,
+    this.cipherType = VaultCipherType.aes256Gcm,
   });
 
   final List<int> salt;
@@ -1114,4 +1272,5 @@ class _EncryptedSecret {
   final List<int> mac;
   final bool hasExtraLock;
   final List<int>? itemLockSalt;
+  final VaultCipherType cipherType;
 }

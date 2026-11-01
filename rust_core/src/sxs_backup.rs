@@ -15,8 +15,8 @@
 //! header causes immediate authentication failure prior to parsing.
 
 use crate::crypto::{
-    derive_kek_argon2id, CryptoError, ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM,
-    NONCE_LEN, SALT_LEN,
+    derive_kek_argon2id, ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, ARGON2_PARALLELISM, NONCE_LEN,
+    SALT_LEN,
 };
 use aes_gcm::{
     aead::{Aead, KeyInit, Payload},
@@ -94,7 +94,6 @@ fn encode_container_with_magic(
     Ok(out)
 }
 
-
 fn decode_container_with_magic(
     expected_magic: [u8; 4],
     password: &[u8],
@@ -151,7 +150,7 @@ fn decode_container_with_magic(
                 aad: header,
             },
         )
-        .map_err(|_: CryptoError| SxsBackupError::DecryptionFailed)
+        .map_err(|_| SxsBackupError::DecryptionFailed)
         .or(Err(SxsBackupError::DecryptionFailed))?;
 
     Ok(Zeroizing::new(decrypted))
@@ -188,5 +187,3 @@ pub fn import_single_item_sxsi_bytes(
 ) -> Result<Zeroizing<Vec<u8>>, SxsBackupError> {
     decode_container_with_magic(SXSI_MAGIC, file_password, sxsi_file_bytes)
 }
-
-

@@ -17,6 +17,7 @@
 5. **Single-Item Share (`.sxsi`) & Full Backup (`.sxs`):**
    - **`.sxsi` (Magic `"SXSI"` `0x53 0x58 0x53 0x49`):** Encrypts a single `Topic + Secret Text` with a custom **File Password** (`Argon2id` + fresh 32-byte salt + `AES-256-GCM` Header AAD) to share with a friend, and decodes/imports received `.sxsi` files.
    - **`.sxs` (Magic `"SXSV"` `0x53 0x58 0x53 0x56`):** Exports and restores all topics in the active vault.
+6. **Optional Per-Item Extra Lock:** Records marked `hasExtraLock` encrypt the secret with an item-password-derived inner AES-256-GCM key (Argon2id + HKDF-SHA256, per-item 32-byte salt and item-lock AAD), then encrypt that payload with the Vault DEK and topic AAD. Add/change/remove operations re-encrypt the same secret; item lock salt and hint are non-secret record metadata. Rust decrypted buffers and derived inner keys use `Zeroizing`. `.sxs` snapshots preserve encrypted payloads, lock salts, and hints; `.sxsi` sharing removes the inner lock layer before file-password encryption.
 
 ---
 
@@ -226,10 +227,10 @@ classDiagram
         +int revealSecondsRemaining
         +int clipboardSecondsRemaining
         +loadVaultSummaries() Future~void~
-        +revealSecretJit(itemUuid, overridePassword) Future~void~
+        +revealSecretJit(itemUuid, overridePassword, itemPassword) Future~void~
         +hideAndZeroizeRevealedSecret() void
-        +createTopic(topic, secretText, passwordHint) Future~void~
-        +exportSingleItemSxsi(itemUuid, filePassword) Future~String~
+        +createTopic(topic, secretText, hasExtraLock, itemPassword, passwordHint) Future~void~
+        +exportSingleItemSxsi(itemUuid, filePassword, itemPassword) Future~String~
         +importSingleItemSxsi(sxsiPacket, filePassword) Future~VaultTopicSummary~
     }
 
@@ -239,8 +240,8 @@ classDiagram
         +setupDualSlotVault(mainPass, secondaryPass, passwordHint) Future~void~
         +unlockVault(password) Future~VaultSessionMode~
         +fetchVaultSummaries() Future~List~VaultTopicSummary~~
-        +revealSecretPayloadJit(itemUuid, overridePassword) Future~DecodedTopicSecret~
-        +saveTopic(topic, secretText, passwordHint) Future~VaultTopicSummary~
+        +revealSecretPayloadJit(itemUuid, overridePassword, itemPassword) Future~DecodedTopicSecret~
+        +saveTopic(topic, secretText, hasExtraLock, itemPassword, passwordHint) Future~VaultTopicSummary~
         +exportSingleItemSxsi(itemUuid, filePass) Future~String~
         +importSingleItemSxsi(packet, filePass) Future~VaultTopicSummary~
     }
@@ -249,6 +250,7 @@ classDiagram
         +String itemUuid
         +String topic
         +DateTime updatedAt
+        +bool hasExtraLock
         +String passwordHint
     }
 
@@ -256,6 +258,7 @@ classDiagram
         +String itemUuid
         +String topic
         +String secretText
+        +bool hasExtraLock
         +String passwordHint
     }
 
@@ -263,8 +266,8 @@ classDiagram
         <<Rust FFI Crate>>
         +initialize_dual_slot_vault_header(main_pass, secondary_pass)
         +verify_and_unlock_dual_slot(header_json, candidate_pass)
-        +upsert_vault_topic(conn, dek, meta, secret_text)
-        +decrypt_single_item_payload(conn, dek, item_uuid)
+        +upsert_vault_topic_with_item_password(conn, dek, meta, secret_text, item_password)
+        +decrypt_single_item_payload_with_item_password(conn, dek, item_uuid, item_password)
         +export_single_item_sxsi(file_pass, topic_json)
         +import_single_item_sxsi(file_pass, sxsi_bytes)
         +export_to_sxs_bytes(backup_pass, vault_json)
@@ -374,4 +377,3 @@ erDiagram
   - Verify creating and decoding a unified Topic + Secret Text item.
   - Verify exporting a single item into `.sxsi` with a File Password and decoding/importing it (plus rejecting wrong passwords).
   - Verify full `.sxs` backup `"SXSV"` magic header integrity.
-

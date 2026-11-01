@@ -33,12 +33,14 @@ class VaultTopicSummary {
     required this.itemUuid,
     required this.topic,
     required this.updatedAt,
+    this.hasExtraLock = false,
     this.passwordHint = '',
   });
 
   final String itemUuid;
   final String topic;
   final DateTime updatedAt;
+  final bool hasExtraLock;
   final String passwordHint;
 }
 
@@ -47,12 +49,21 @@ class DecodedTopicSecret {
     required this.itemUuid,
     required this.topic,
     required this.secretText,
+    this.hasExtraLock = false,
     this.passwordHint = '',
   });
 
   final String itemUuid;
   final String topic;
   final String secretText;
+  final bool hasExtraLock;
+  final String passwordHint;
+}
+
+class ItemLockedException extends StateError {
+  ItemLockedException(this.passwordHint)
+      : super('Item password did not authenticate');
+
   final String passwordHint;
 }
 

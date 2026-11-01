@@ -5,13 +5,21 @@
 //! and `.sxs` Full Encrypted Backup/Restore.
 
 use crate::crypto::{
-    create_wrapped_key_slot, unwrap_key_slot, DataEncryptionKey, WrappedKeySlot,
+    build_item_lock_aad, create_wrapped_key_slot, decrypt_item_inner_layer,
+    encrypt_item_inner_layer, generate_item_lock_salt, unwrap_key_slot, DataEncryptionKey,
+    WrappedKeySlot, SALT_LEN,
 };
 use crate::sxs_backup::{
     export_single_item_sxsi_bytes, export_to_sxs_bytes, import_from_sxs_bytes,
     import_single_item_sxsi_bytes,
 };
 use crate::totp::{generate_totp_sha1, TotpSnapshot};
+use crate::vault_db::{
+    decrypt_single_item_payload_with_item_password, remove_vault_topic_extra_lock,
+    set_vault_topic_extra_lock, upsert_vault_topic_with_item_password, VaultDbError,
+    VaultTopicRecord,
+};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
@@ -49,8 +57,8 @@ pub fn initialize_dual_slot_vault_header(
     let dek_main = DataEncryptionKey::generate_random();
     let dek_secondary = DataEncryptionKey::generate_random();
 
-    let slot_a_main = create_wrapped_key_slot(&main_bytes, &dek_main, SLOT_A_AAD)
-        .map_err(|e| e.to_string())?;
+    let slot_a_main =
+        create_wrapped_key_slot(&main_bytes, &dek_main, SLOT_A_AAD).map_err(|e| e.to_string())?;
     let slot_b_secondary = create_wrapped_key_slot(&secondary_bytes, &dek_secondary, SLOT_B_AAD)
         .map_err(|e| e.to_string())?;
 
@@ -82,6 +90,111 @@ pub fn verify_and_unlock_dual_slot(
         (Err(_), Ok(_dek_b)) => Ok(UnlockedVaultMode::SecondaryVault),
         (Err(_), Err(_)) => Err("Invalid Password".to_string()),
     }
+}
+
+pub fn encrypt_locked_item_inner_layer(
+    item_password: String,
+    item_lock_salt: Vec<u8>,
+    item_uuid: String,
+    schema_version: u16,
+    plaintext: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    let password = Zeroizing::new(item_password.into_bytes());
+    let plaintext = Zeroizing::new(plaintext);
+    let salt: [u8; SALT_LEN] = item_lock_salt
+        .try_into()
+        .map_err(|_| "Item lock salt must be 32 bytes".to_string())?;
+    let aad = build_item_lock_aad(&item_uuid, schema_version);
+
+    encrypt_item_inner_layer(&password, &salt, &plaintext, &aad).map_err(|e| e.to_string())
+}
+
+pub fn create_item_lock_salt() -> Vec<u8> {
+    generate_item_lock_salt().to_vec()
+}
+
+pub fn decrypt_locked_item_inner_layer(
+    item_password: String,
+    item_lock_salt: Vec<u8>,
+    item_uuid: String,
+    schema_version: u16,
+    ciphertext: Vec<u8>,
+) -> Result<Zeroizing<Vec<u8>>, String> {
+    let password = Zeroizing::new(item_password.into_bytes());
+    let salt: [u8; SALT_LEN] = item_lock_salt
+        .try_into()
+        .map_err(|_| "Item lock salt must be 32 bytes".to_string())?;
+    let ciphertext = Zeroizing::new(ciphertext);
+    let aad = build_item_lock_aad(&item_uuid, schema_version);
+
+    decrypt_item_inner_layer(&password, &salt, &ciphertext, &aad).map_err(|e| e.to_string())
+}
+
+pub fn create_locked_item(
+    conn: &Connection,
+    dek: &DataEncryptionKey,
+    mut record: VaultTopicRecord,
+    secret_text: Vec<u8>,
+    item_password: String,
+) -> Result<(), String> {
+    if item_password.len() < 6 {
+        return Err("Item Password must be at least 6 characters".to_string());
+    }
+    let password = Zeroizing::new(item_password.into_bytes());
+    let secret = Zeroizing::new(secret_text);
+    record.has_extra_lock = true;
+    record.item_lock_salt = Some(generate_item_lock_salt().to_vec());
+    upsert_vault_topic_with_item_password(conn, dek, &record, &secret, Some(&password))
+        .map_err(|error| error.to_string())
+}
+
+pub fn unlock_locked_item(
+    conn: &Connection,
+    dek: &DataEncryptionKey,
+    item_uuid: &str,
+    item_password: String,
+) -> Result<Zeroizing<Vec<u8>>, String> {
+    let password = Zeroizing::new(item_password.into_bytes());
+    decrypt_single_item_payload_with_item_password(conn, dek, item_uuid, Some(&password))
+        .map_err(|error| error.to_string())
+}
+
+pub fn set_item_extra_lock(
+    conn: &Connection,
+    dek: &DataEncryptionKey,
+    item_uuid: &str,
+    new_item_password: String,
+    password_hint: String,
+    current_item_password: Option<String>,
+) -> Result<(), String> {
+    if new_item_password.len() < 6 {
+        return Err("Item Password must be at least 6 characters".to_string());
+    }
+    let new_password = Zeroizing::new(new_item_password.into_bytes());
+    let current_password =
+        current_item_password.map(|password| Zeroizing::new(password.into_bytes()));
+    set_vault_topic_extra_lock(
+        conn,
+        dek,
+        item_uuid,
+        &new_password,
+        &password_hint,
+        current_password
+            .as_deref()
+            .map(|password| password.as_slice()),
+    )
+    .map_err(|error: VaultDbError| error.to_string())
+}
+
+pub fn remove_item_extra_lock(
+    conn: &Connection,
+    dek: &DataEncryptionKey,
+    item_uuid: &str,
+    item_password: String,
+) -> Result<(), String> {
+    let password = Zeroizing::new(item_password.into_bytes());
+    remove_vault_topic_extra_lock(conn, dek, item_uuid, &password)
+        .map_err(|error| error.to_string())
 }
 
 /// Computes an offline RFC 6238 6-digit TOTP code for a Base32 secret.
@@ -132,6 +245,3 @@ pub fn decode_sxsi_item_share(
     let decrypted = import_single_item_sxsi_bytes(&pwd, &sxsi_bytes).map_err(|e| e.to_string())?;
     String::from_utf8(decrypted.to_vec()).map_err(|e| e.to_string())
 }
-
-
-

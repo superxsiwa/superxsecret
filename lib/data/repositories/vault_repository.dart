@@ -63,8 +63,20 @@ class VaultRepository {
   Future<DecodedTopicSecret> revealSecretPayloadJit(
     String itemUuid, {
     String? overridePassword,
+    String? itemPassword,
   }) {
     return _rustFfiService.decryptPayloadJit(
+      itemUuid,
+      overridePassword: overridePassword,
+      itemPassword: itemPassword,
+    );
+  }
+
+  Future<void> verifyVaultPassword(
+    String itemUuid, {
+    String? overridePassword,
+  }) {
+    return _rustFfiService.verifyVaultPassword(
       itemUuid,
       overridePassword: overridePassword,
     );
@@ -73,10 +85,12 @@ class VaultRepository {
   Future<void> verifyItemPassword(
     String itemUuid, {
     String? overridePassword,
+    String? itemPassword,
   }) {
     return _rustFfiService.verifyItemPassword(
       itemUuid,
       overridePassword: overridePassword,
+      itemPassword: itemPassword,
     );
   }
 
@@ -90,14 +104,42 @@ class VaultRepository {
     );
   }
 
+  Future<void> setItemExtraLock({
+    required String itemUuid,
+    required String newItemPassword,
+    required String passwordHint,
+    String? currentItemPassword,
+  }) {
+    return _rustFfiService.setItemExtraLock(
+      itemUuid: itemUuid,
+      newItemPassword: newItemPassword,
+      passwordHint: passwordHint,
+      currentItemPassword: currentItemPassword,
+    );
+  }
+
+  Future<void> removeItemExtraLock({
+    required String itemUuid,
+    required String itemPassword,
+  }) {
+    return _rustFfiService.removeItemExtraLock(
+      itemUuid: itemUuid,
+      itemPassword: itemPassword,
+    );
+  }
+
   Future<VaultTopicSummary> saveTopic({
     required String topic,
     required String secretText,
+    bool hasExtraLock = false,
+    String? itemPassword,
     String passwordHint = '',
   }) {
     return _rustFfiService.createNewTopic(
       topic: topic,
       secretText: secretText,
+      hasExtraLock: hasExtraLock,
+      itemPassword: itemPassword,
       passwordHint: passwordHint,
     );
   }
@@ -110,11 +152,13 @@ class VaultRepository {
     required String itemUuid,
     required String filePassword,
     String? itemPassword,
+    String? overridePassword,
   }) {
     return _rustFfiService.exportSingleItemSxsi(
       itemUuid: itemUuid,
       filePassword: filePassword,
       itemPassword: itemPassword,
+      overridePassword: overridePassword,
     );
   }
 
@@ -153,6 +197,16 @@ class VaultRepository {
     return _rustFfiService.exportSxsEncryptedContainer(
       verifyMasterPassword: verifyMasterPassword,
       backupEncryptionPassword: backupEncryptionPassword,
+    );
+  }
+
+  Future<void> restoreSxsBackup({
+    required Uint8List backupBytes,
+    required String backupFilePassword,
+  }) {
+    return _rustFfiService.restoreSxsEncryptedContainer(
+      containerBytes: backupBytes,
+      backupFilePassword: backupFilePassword,
     );
   }
 }

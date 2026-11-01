@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../../domain/models/vault_models.dart';
 import '../../../core/theme/app_theme.dart';
@@ -219,13 +221,27 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.topic,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15.5,
-                          color: AppTheme.textPrimary,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.topic,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15.5,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (item.hasExtraLock) ...[
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.lock_outline_rounded,
+                              size: 14,
+                              color: AppTheme.emeraldSecure,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -239,19 +255,29 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: const Icon(
+                PopupMenuButton<String>(
+                  tooltip: 'Item lock',
+                  onSelected: (action) => _manageItemLock(item, action),
+                  itemBuilder: (context) => [
+                    if (!item.hasExtraLock)
+                      const PopupMenuItem(
+                        value: 'add',
+                        child: Text('Add Extra Lock'),
+                      )
+                    else ...[
+                      const PopupMenuItem(
+                        value: 'change',
+                        child: Text('Change Item Password'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'remove',
+                        child: Text('Remove Extra Lock'),
+                      ),
+                    ],
+                  ],
+                  icon: const Icon(
                     Icons.verified_user_outlined,
-                    size: 14,
+                    size: 18,
                     color: AppTheme.emeraldSecure,
                   ),
                 ),
@@ -462,13 +488,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     );
   }
 
-  void _showNewTopicDialog(BuildContext context) {
+  Future<void> _showNewTopicDialog(BuildContext context) async {
     final topicCtrl = TextEditingController();
     final secretCtrl = TextEditingController();
     final hintCtrl = TextEditingController();
+    final itemPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    var hasExtraLock = false;
+    var passwordEntropyBits = 0.0;
     String? errorMsg;
 
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
@@ -500,14 +530,67 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         labelText: 'Secret Text',
                       ),
                     ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: hasExtraLock,
+                      title: const Text('🔒 Extra Lock (Separate Password)'),
+                      subtitle: const Text(
+                        'Require a separate password to reveal this item.',
+                      ),
+                      onChanged: (value) => setDialogState(() {
+                        hasExtraLock = value;
+                        errorMsg = null;
+                      }),
+                    ),
+                    if (hasExtraLock) ...[
+                      TextField(
+                        controller: itemPasswordCtrl,
+                        obscureText: true,
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        onChanged: (value) => setDialogState(() {
+                          passwordEntropyBits =
+                              widget.viewModel.estimatePasswordEntropyBits(
+                            value,
+                          );
+                        }),
+                        decoration: const InputDecoration(
+                          labelText: 'Item Password',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: confirmPasswordCtrl,
+                        obscureText: true,
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirm Password',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildItemPasswordStrength(passwordEntropyBits),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'If you forget this password, the item cannot be recovered.',
+                        style: TextStyle(
+                          color: AppTheme.amberWarning,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     TextField(
                       controller: hintCtrl,
                       enableIMEPersonalizedLearning: false,
                       autocorrect: false,
                       enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Password Hint (Optional)',
+                      decoration: InputDecoration(
+                        labelText: hasExtraLock
+                            ? 'Password Hint'
+                            : 'Password Hint (Optional)',
                       ),
                     ),
                     if (errorMsg != null) ...[
@@ -530,10 +613,26 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 ),
                 FilledButton(
                   onPressed: () async {
+                    if (hasExtraLock &&
+                        (itemPasswordCtrl.text.length < 6 ||
+                            itemPasswordCtrl.text != confirmPasswordCtrl.text ||
+                            hintCtrl.text.trim().isEmpty)) {
+                      setDialogState(() {
+                        errorMsg = itemPasswordCtrl.text.length < 6
+                            ? 'Item Password must be at least 6 characters.'
+                            : itemPasswordCtrl.text != confirmPasswordCtrl.text
+                                ? 'Item passwords do not match.'
+                                : 'Password Hint is required for Extra Lock.';
+                      });
+                      return;
+                    }
                     try {
                       await widget.viewModel.createTopic(
                         topic: topicCtrl.text,
                         secretText: secretCtrl.text,
+                        hasExtraLock: hasExtraLock,
+                        itemPassword:
+                            hasExtraLock ? itemPasswordCtrl.text : null,
                         passwordHint: hintCtrl.text,
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop();
@@ -549,6 +648,41 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         );
       },
     );
+    topicCtrl.dispose();
+    secretCtrl.dispose();
+    hintCtrl.dispose();
+    itemPasswordCtrl.dispose();
+    confirmPasswordCtrl.dispose();
+  }
+
+  Widget _buildItemPasswordStrength(double bits) {
+    final strength = (bits / 100).clamp(0.0, 1.0);
+    final color = bits < 45
+        ? AppTheme.crimsonAlert
+        : bits < 75
+            ? AppTheme.amberWarning
+            : AppTheme.emeraldSecure;
+    final label = bits < 45
+        ? 'Weak'
+        : bits < 75
+            ? 'Good'
+            : 'Strong';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Password strength: $label (${bits.toStringAsFixed(0)} bits)',
+          style: TextStyle(color: color, fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: strength,
+          minHeight: 4,
+          backgroundColor: Colors.white.withValues(alpha: 0.08),
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+        ),
+      ],
+    );
   }
 
   Future<void> _viewItem(
@@ -556,18 +690,49 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   ) async {
     try {
       await widget.viewModel.revealSecretJit(item.itemUuid);
+    } on ItemLockedException {
+      if (!mounted) return;
+      await _showEnterItemPasswordDialog(
+        context,
+        item,
+        onUnlocked: (itemPassword) => widget.viewModel.revealSecretJit(
+          item.itemUuid,
+          itemPassword: itemPassword,
+        ),
+      );
     } on VaultItemPasswordException {
       if (!mounted) return;
       await _showEnterPasswordDialog(
         context,
         item,
-        onUnlocked: (password) => widget.viewModel.revealSecretJit(
-          item.itemUuid,
-          overridePassword: password,
-        ),
+        onUnlocked: (password) => _revealWithVaultPassword(item, password),
       );
     } catch (error) {
       if (mounted) _showActionError(context, error);
+    }
+  }
+
+  Future<void> _revealWithVaultPassword(
+    VaultTopicSummary item,
+    String? vaultPassword,
+  ) async {
+    try {
+      await widget.viewModel.revealSecretJit(
+        item.itemUuid,
+        overridePassword: vaultPassword,
+      );
+    } on ItemLockedException {
+      if (!mounted) return;
+      await _showEnterItemPasswordDialog(
+        context,
+        item,
+        overridePassword: vaultPassword,
+        onUnlocked: (itemPassword) => widget.viewModel.revealSecretJit(
+          item.itemUuid,
+          overridePassword: vaultPassword,
+          itemPassword: itemPassword,
+        ),
+      );
     }
   }
 
@@ -579,24 +744,278 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
       if (mounted) {
         _showShareSxsiDialog(context, item);
       }
+    } on ItemLockedException {
+      if (!mounted) return;
+      await _showEnterItemPasswordDialog(
+        context,
+        item,
+        onUnlocked: (itemPassword) async {
+          if (mounted) {
+            _showShareSxsiDialog(
+              context,
+              item,
+              itemPassword: itemPassword,
+            );
+          }
+        },
+      );
     } on VaultItemPasswordException {
       if (!mounted) return;
       await _showEnterPasswordDialog(
         context,
         item,
-        onUnlocked: (password) async {
-          if (mounted) {
-            _showShareSxsiDialog(
-              context,
-              item,
-              itemPassword: password,
-            );
-          }
-        },
+        onUnlocked: (password) => _shareWithVaultPassword(item, password),
       );
     } catch (error) {
       if (mounted) _showActionError(context, error);
     }
+  }
+
+  Future<void> _shareWithVaultPassword(
+    VaultTopicSummary item,
+    String? vaultPassword,
+  ) async {
+    try {
+      await widget.viewModel.verifyItemPassword(
+        item.itemUuid,
+        overridePassword: vaultPassword,
+      );
+      if (mounted) {
+        _showShareSxsiDialog(
+          context,
+          item,
+          overridePassword: vaultPassword,
+        );
+      }
+    } on ItemLockedException {
+      if (!mounted) return;
+      await _showEnterItemPasswordDialog(
+        context,
+        item,
+        overridePassword: vaultPassword,
+        onUnlocked: (itemPassword) async {
+          if (mounted) {
+            _showShareSxsiDialog(
+              context,
+              item,
+              itemPassword: itemPassword,
+              overridePassword: vaultPassword,
+            );
+          }
+        },
+      );
+    }
+  }
+
+  Future<void> _manageItemLock(
+    VaultTopicSummary item,
+    String action,
+  ) async {
+    if (action == 'add') {
+      await _showItemLockSetupDialog(item);
+      return;
+    }
+    await _showEnterItemPasswordDialog(
+      context,
+      item,
+      onUnlocked: (currentPassword) async {
+        try {
+          if (action == 'change') {
+            await _showItemLockSetupDialog(
+              item,
+              currentItemPassword: currentPassword,
+            );
+          } else {
+            await widget.viewModel.removeItemExtraLock(
+              itemUuid: item.itemUuid,
+              itemPassword: currentPassword,
+            );
+          }
+        } catch (error) {
+          if (mounted) _showActionError(context, error);
+        }
+      },
+    );
+  }
+
+  Future<void> _showItemLockSetupDialog(
+    VaultTopicSummary item, {
+    String? currentItemPassword,
+  }) async {
+    final passwordCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final hintCtrl = TextEditingController(text: item.passwordHint);
+    String? errorMessage;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            currentItemPassword == null
+                ? 'Add Extra Lock'
+                : 'Change Item Password',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(labelText: 'Item Password'),
+              ),
+              TextField(
+                controller: confirmCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: (_) => setDialogState(() {}),
+                decoration:
+                    const InputDecoration(labelText: 'Confirm Password'),
+              ),
+              const SizedBox(height: 8),
+              _buildItemPasswordStrength(
+                widget.viewModel.estimatePasswordEntropyBits(passwordCtrl.text),
+              ),
+              TextField(
+                controller: hintCtrl,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(labelText: 'Password Hint'),
+              ),
+              if (errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    errorMessage!,
+                    style: const TextStyle(color: AppTheme.crimsonAlert),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (passwordCtrl.text.length < 6 ||
+                    passwordCtrl.text != confirmCtrl.text ||
+                    hintCtrl.text.trim().isEmpty) {
+                  setDialogState(() {
+                    errorMessage = passwordCtrl.text.length < 6
+                        ? 'Item Password must be at least 6 characters.'
+                        : passwordCtrl.text != confirmCtrl.text
+                            ? 'Item passwords do not match.'
+                            : 'Password Hint is required.';
+                  });
+                  return;
+                }
+                try {
+                  await widget.viewModel.setItemExtraLock(
+                    itemUuid: item.itemUuid,
+                    newItemPassword: passwordCtrl.text,
+                    passwordHint: hintCtrl.text,
+                    currentItemPassword: currentItemPassword,
+                  );
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                } catch (error) {
+                  setDialogState(() => errorMessage = error.toString());
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordCtrl.dispose();
+    confirmCtrl.dispose();
+    hintCtrl.dispose();
+  }
+
+  Future<void> _showEnterItemPasswordDialog(
+    BuildContext context,
+    VaultTopicSummary item, {
+    String? overridePassword,
+    required Future<void> Function(String itemPassword) onUnlocked,
+  }) async {
+    final passwordCtrl = TextEditingController();
+    String? errorMessage;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Enter Item Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Unlock "${item.topic}" to continue.'),
+              if (item.passwordHint.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Hint: ${item.passwordHint}'),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(labelText: 'Item Password'),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  style: const TextStyle(
+                    color: AppTheme.crimsonAlert,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  await widget.viewModel.verifyItemPassword(
+                    item.itemUuid,
+                    overridePassword: overridePassword,
+                    itemPassword: passwordCtrl.text,
+                  );
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                    await onUnlocked(passwordCtrl.text);
+                  }
+                } on ItemLockedException {
+                  setDialogState(
+                      () => errorMessage = 'Incorrect item password');
+                } catch (error) {
+                  setDialogState(() => errorMessage = error.toString());
+                }
+              },
+              child: const Text('Unlock'),
+            ),
+          ],
+        ),
+      ),
+    );
+    passwordCtrl.dispose();
   }
 
   Future<void> _showEnterPasswordDialog(
@@ -616,7 +1035,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Unlock "${item.topic}" to continue.'),
-              if (item.passwordHint.isNotEmpty) ...[
+              if (!item.hasExtraLock && item.passwordHint.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text('Password Hint: ${item.passwordHint}'),
               ],
@@ -668,7 +1087,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             FilledButton(
               onPressed: () async {
                 try {
-                  await widget.viewModel.verifyItemPassword(
+                  await widget.viewModel.verifyVaultPassword(
                     item.itemUuid,
                     overridePassword: passwordCtrl.text,
                   );
@@ -701,6 +1120,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     BuildContext context,
     VaultTopicSummary item, {
     String? itemPassword,
+    String? overridePassword,
   }) {
     final filePwdCtrl = TextEditingController();
     String? sxsiPacket;
@@ -782,6 +1202,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         itemUuid: item.itemUuid,
                         filePassword: filePwdCtrl.text,
                         itemPassword: itemPassword,
+                        overridePassword: overridePassword,
                       );
                       setDialogState(() {
                         sxsiPacket = packet;
@@ -882,6 +1303,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   void _showSxsBackupDialog(BuildContext context) {
     final masterCtrl = TextEditingController(text: 'SuperSecret#2026');
     final backupPwdCtrl = TextEditingController(text: 'BackupVaultKey#2026');
+    final restoreBytesCtrl = TextEditingController();
     String? exportStatus;
 
     showDialog<void>(
@@ -891,48 +1313,62 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Backup (.sxs)'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Full Vault Backup ("SXSV" 64B Header + Argon2id + AES-256-GCM)',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: masterCtrl,
-                    obscureText: true,
-                    enableIMEPersonalizedLearning: false,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Verify Vault Password',
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Full Vault Backup ("SXSV" 64B Header + Argon2id + AES-256-GCM)',
+                      style: TextStyle(fontSize: 12.5),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: backupPwdCtrl,
-                    obscureText: true,
-                    enableIMEPersonalizedLearning: false,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Backup File Password',
-                    ),
-                  ),
-                  if (exportStatus != null) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      exportStatus!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        color: AppTheme.emeraldSecure,
+                    TextField(
+                      controller: masterCtrl,
+                      obscureText: true,
+                      enableIMEPersonalizedLearning: false,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Verify Vault Password',
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: backupPwdCtrl,
+                      obscureText: true,
+                      enableIMEPersonalizedLearning: false,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Backup File Password',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: restoreBytesCtrl,
+                      minLines: 2,
+                      maxLines: 4,
+                      enableIMEPersonalizedLearning: false,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Restore .sxs (Base64 URL)',
+                      ),
+                    ),
+                    if (exportStatus != null) ...[
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        exportStatus!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: AppTheme.emeraldSecure,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -948,8 +1384,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         backupFilePassword: backupPwdCtrl.text,
                       );
                       setDialogState(() {
-                        exportStatus =
-                            'Exported vault.sxs (${bytes.length} bytes, Magic: "SXSV")';
+                        exportStatus = base64Url.encode(bytes);
                       });
                     } catch (e) {
                       setDialogState(() {
@@ -959,6 +1394,27 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   },
                   icon: const Icon(Icons.download_rounded, size: 18),
                   label: const Text('Export .sxs'),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    try {
+                      final bytes = Uint8List.fromList(
+                        base64Url.decode(
+                          base64Url.normalize(restoreBytesCtrl.text.trim()),
+                        ),
+                      );
+                      await widget.viewModel.restoreSxsEncryptedFile(
+                        backupBytes: bytes,
+                        backupFilePassword: backupPwdCtrl.text,
+                      );
+                      setDialogState(() {
+                        exportStatus = 'Backup restored.';
+                      });
+                    } catch (error) {
+                      setDialogState(() => exportStatus = error.toString());
+                    }
+                  },
+                  child: const Text('Restore .sxs'),
                 ),
               ],
             );

@@ -113,6 +113,157 @@ void main() {
       expect(updated.passwordHint, 'New hint');
     });
 
+    test(
+        'Extra Lock requires its item password and survives vault password changes',
+        () async {
+      await repository.setupDualSlotVault(
+        mainPassword: 'VaultPasswordOriginal#2026',
+        secondaryPassword: 'SecondaryPasswordOriginal',
+      );
+      final item = await repository.saveTopic(
+        topic: 'Extra Locked Item',
+        secretText: 'extra private payload',
+        hasExtraLock: true,
+        itemPassword: 'DistinctItemPassword1',
+        passwordHint: 'Favorite first pet',
+      );
+
+      expect(item.hasExtraLock, isTrue);
+      expect(item.passwordHint, 'Favorite first pet');
+      await expectLater(
+        repository.revealSecretPayloadJit(item.itemUuid),
+        throwsA(
+          isA<ItemLockedException>().having(
+            (error) => error.passwordHint,
+            'password hint',
+            'Favorite first pet',
+          ),
+        ),
+      );
+      await expectLater(
+        repository.revealSecretPayloadJit(
+          item.itemUuid,
+          itemPassword: 'IncorrectItemPassword',
+        ),
+        throwsA(isA<ItemLockedException>()),
+      );
+
+      final opened = await repository.revealSecretPayloadJit(
+        item.itemUuid,
+        itemPassword: 'DistinctItemPassword1',
+      );
+      expect(opened.secretText, 'extra private payload');
+      expect(opened.hasExtraLock, isTrue);
+      final shared = await repository.exportSingleItemSxsi(
+        itemUuid: item.itemUuid,
+        filePassword: 'ShareFilePassword1',
+        itemPassword: 'DistinctItemPassword1',
+      );
+      expect(shared.startsWith('SXSI1:'), isTrue);
+      await expectLater(
+        repository.exportSingleItemSxsi(
+          itemUuid: item.itemUuid,
+          filePassword: 'ShareFilePassword1',
+          itemPassword: 'WrongItemPassword',
+        ),
+        throwsA(isA<ItemLockedException>()),
+      );
+
+      await repository.setupDualSlotVault(
+        mainPassword: 'VaultPasswordChanged#2026',
+        secondaryPassword: 'SecondaryPasswordChanged',
+      );
+      await expectLater(
+        repository.revealSecretPayloadJit(
+          item.itemUuid,
+          itemPassword: 'DistinctItemPassword1',
+        ),
+        throwsA(isA<VaultItemPasswordException>()),
+      );
+      final afterVaultPasswordChange = await repository.revealSecretPayloadJit(
+        item.itemUuid,
+        overridePassword: 'VaultPasswordOriginal#2026',
+        itemPassword: 'DistinctItemPassword1',
+      );
+      expect(afterVaultPasswordChange.secretText, 'extra private payload');
+    });
+
+    test('Extra Lock can be added, changed, and removed without data loss',
+        () async {
+      await repository.unlockVault('SuperSecret#2026');
+      final item = await repository.saveTopic(
+        topic: 'Manage lock',
+        secretText: 'keep this secret',
+      );
+
+      await repository.setItemExtraLock(
+        itemUuid: item.itemUuid,
+        newItemPassword: 'FirstItemPassword1',
+        passwordHint: 'First hint',
+      );
+      await expectLater(
+        repository.revealSecretPayloadJit(item.itemUuid),
+        throwsA(isA<ItemLockedException>()),
+      );
+      await repository.setItemExtraLock(
+        itemUuid: item.itemUuid,
+        newItemPassword: 'SecondItemPassword2',
+        passwordHint: 'Updated hint',
+        currentItemPassword: 'FirstItemPassword1',
+      );
+      final changed = await repository.revealSecretPayloadJit(
+        item.itemUuid,
+        itemPassword: 'SecondItemPassword2',
+      );
+      expect(changed.secretText, 'keep this secret');
+      expect(changed.passwordHint, 'Updated hint');
+
+      await repository.removeItemExtraLock(
+        itemUuid: item.itemUuid,
+        itemPassword: 'SecondItemPassword2',
+      );
+      final unlocked = await repository.revealSecretPayloadJit(item.itemUuid);
+      expect(unlocked.secretText, 'keep this secret');
+      expect(unlocked.hasExtraLock, isFalse);
+    });
+
+    test('.sxs backup restore preserves Extra Lock ciphertext and metadata',
+        () async {
+      await repository.setupDualSlotVault(
+        mainPassword: 'BackupVaultPassword#2026',
+        secondaryPassword: 'BackupSecondaryPassword#2026',
+      );
+      final item = await repository.saveTopic(
+        topic: 'Backed up locked item',
+        secretText: 'backup secret',
+        hasExtraLock: true,
+        itemPassword: 'BackupItemPassword1',
+        passwordHint: 'Backup hint',
+      );
+      final backup = await repository.exportSxsBackup(
+        verifyMasterPassword: 'BackupVaultPassword#2026',
+        backupEncryptionPassword: 'BackupFilePassword1',
+      );
+      await repository.saveTopic(topic: 'After backup', secretText: 'discard');
+
+      await repository.restoreSxsBackup(
+        backupBytes: backup,
+        backupFilePassword: 'BackupFilePassword1',
+      );
+      final restored = await repository.fetchVaultSummaries();
+      expect(
+          restored.any((summary) => summary.topic == 'After backup'), isFalse);
+      final restoredItem =
+          restored.singleWhere((summary) => summary.itemUuid == item.itemUuid);
+      expect(restoredItem.hasExtraLock, isTrue);
+      expect(restoredItem.passwordHint, 'Backup hint');
+      final decoded = await repository.revealSecretPayloadJit(
+        item.itemUuid,
+        itemPassword: 'BackupItemPassword1',
+      );
+      expect(decoded.secretText, 'backup secret');
+    });
+
     test('.sxsi single-item share verifies SXSI magic header and File Password',
         () async {
       await repository.setupDualSlotVault(
@@ -193,6 +344,43 @@ void main() {
       expect(find.text('Crypto'), findsNothing);
       expect(find.textContaining('FAKE'), findsNothing);
       expect(find.textContaining('DECOY'), findsNothing);
+    });
+
+    testWidgets('New Topic offers the optional Extra Lock password fields',
+        (tester) async {
+      await repository.unlockVault('SuperSecret#2026');
+      final viewModel = VaultViewModel(vaultRepository: repository);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: VaultDashboardView(
+            viewModel: viewModel,
+            onLockRequested: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 10),
+      );
+
+      await tester.tap(find.text('New'));
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 10),
+      );
+      expect(find.text('🔒 Extra Lock (Separate Password)'), findsOneWidget);
+      await tester.tap(find.text('🔒 Extra Lock (Separate Password)'));
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 10),
+      );
+
+      expect(find.text('Item Password'), findsOneWidget);
+      expect(find.text('Confirm Password'), findsOneWidget);
+      expect(find.text('Password Hint'), findsOneWidget);
     });
 
     testWidgets('Lock screen does not expose Quick Demo credentials',

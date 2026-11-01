@@ -55,11 +55,13 @@ class VaultViewModel extends ChangeNotifier {
   Future<void> revealSecretJit(
     String itemUuid, {
     String? overridePassword,
+    String? itemPassword,
   }) async {
     _revealCountdownTimer?.cancel();
     final secret = await _vaultRepository.revealSecretPayloadJit(
       itemUuid,
       overridePassword: overridePassword,
+      itemPassword: itemPassword,
     );
     _activeRevealedSecret = secret;
     _revealSecondsRemaining = 15;
@@ -88,11 +90,15 @@ class VaultViewModel extends ChangeNotifier {
   Future<VaultTopicSummary> createTopic({
     required String topic,
     required String secretText,
+    bool hasExtraLock = false,
+    String? itemPassword,
     String passwordHint = '',
   }) async {
     final created = await _vaultRepository.saveTopic(
       topic: topic,
       secretText: secretText,
+      hasExtraLock: hasExtraLock,
+      itemPassword: itemPassword,
       passwordHint: passwordHint,
     );
     await loadVaultSummaries();
@@ -109,14 +115,56 @@ class VaultViewModel extends ChangeNotifier {
     );
   }
 
+  Future<void> setItemExtraLock({
+    required String itemUuid,
+    required String newItemPassword,
+    required String passwordHint,
+    String? currentItemPassword,
+  }) async {
+    await _vaultRepository.setItemExtraLock(
+      itemUuid: itemUuid,
+      newItemPassword: newItemPassword,
+      passwordHint: passwordHint,
+      currentItemPassword: currentItemPassword,
+    );
+    await loadVaultSummaries();
+  }
+
+  Future<void> removeItemExtraLock({
+    required String itemUuid,
+    required String itemPassword,
+  }) async {
+    await _vaultRepository.removeItemExtraLock(
+      itemUuid: itemUuid,
+      itemPassword: itemPassword,
+    );
+    await loadVaultSummaries();
+  }
+
   Future<void> verifyItemPassword(
     String itemUuid, {
     String? overridePassword,
+    String? itemPassword,
   }) {
     return _vaultRepository.verifyItemPassword(
       itemUuid,
       overridePassword: overridePassword,
+      itemPassword: itemPassword,
     );
+  }
+
+  Future<void> verifyVaultPassword(
+    String itemUuid, {
+    String? overridePassword,
+  }) {
+    return _vaultRepository.verifyVaultPassword(
+      itemUuid,
+      overridePassword: overridePassword,
+    );
+  }
+
+  double estimatePasswordEntropyBits(String password) {
+    return _vaultRepository.estimatePasswordEntropyBits(password);
   }
 
   String generateRandomPassword({int length = 20}) {
@@ -128,11 +176,13 @@ class VaultViewModel extends ChangeNotifier {
     required String itemUuid,
     required String filePassword,
     String? itemPassword,
+    String? overridePassword,
   }) {
     return _vaultRepository.exportSingleItemSxsi(
       itemUuid: itemUuid,
       filePassword: filePassword,
       itemPassword: itemPassword,
+      overridePassword: overridePassword,
     );
   }
 
@@ -195,6 +245,18 @@ class VaultViewModel extends ChangeNotifier {
       verifyMasterPassword: masterPasswordVerification,
       backupEncryptionPassword: backupFilePassword,
     );
+  }
+
+  Future<void> restoreSxsEncryptedFile({
+    required Uint8List backupBytes,
+    required String backupFilePassword,
+  }) async {
+    await _vaultRepository.restoreSxsBackup(
+      backupBytes: backupBytes,
+      backupFilePassword: backupFilePassword,
+    );
+    hideAndZeroizeRevealedSecret();
+    await loadVaultSummaries();
   }
 
   @override

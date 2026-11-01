@@ -106,7 +106,7 @@ pub fn derive_kek_argon2id(
         .hash_password_into(password, salt, master_seed.as_mut())
         .map_err(|_| CryptoError::KdfFailure)?;
 
-    let hk = Hkdf::<Sha256>::new( Some(salt), master_seed.as_ref());
+    let hk = Hkdf::<Sha256>::new(Some(salt), master_seed.as_ref());
     let mut kek = Zeroizing::new([0u8; KEY_LEN]);
     hk.expand(b"superxsecret.v1.kek.envelope", kek.as_mut())
         .map_err(|_| CryptoError::HkdfFailure)?;
@@ -173,18 +173,18 @@ pub fn unwrap_key_slot(
         aad: slot_domain_aad,
     };
 
-    let decrypted_Vec = Zeroizing::new(
+    let decrypted_vec = Zeroizing::new(
         cipher
             .decrypt(Nonce::from_slice(&slot.nonce), payload)
             .map_err(|_| CryptoError::AeadFailure)?,
     );
 
-    if decrypted_Vec.len() != KEY_LEN {
+    if decrypted_vec.len() != KEY_LEN {
         return Err(CryptoError::InvalidLength);
     }
 
     let mut dek_bytes = [0u8; KEY_LEN];
-    dek_bytes.copy_from_slice(&decrypted_Vec);
+    dek_bytes.copy_from_slice(&decrypted_vec);
     Ok(DataEncryptionKey::from_bytes(dek_bytes))
 }
 
@@ -232,16 +232,135 @@ pub fn decrypt_field_aead(
     let field_key = dek.derive_field_aead_key()?;
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(field_key.as_ref()));
 
-    let plaintext = cipher
-        .decrypt(
-            Nonce::from_slice(nonce),
+    let plaintext = Zeroizing::new(
+        cipher
+            .decrypt(
+                Nonce::from_slice(nonce),
+                Payload {
+                    msg: ciphertext,
+                    aad: record_aad,
+                },
+            )
+            .map_err(|_| CryptoError::AeadFailure)?,
+    );
+
+    Ok(plaintext)
+}
+
+fn derive_item_lock_key(
+    item_password: &[u8],
+    item_lock_salt: &[u8; SALT_LEN],
+) -> Result<Zeroizing<[u8; KEY_LEN]>, CryptoError> {
+    let params = Params::new(
+        ARGON2_MEMORY_KIB,
+        ARGON2_ITERATIONS,
+        ARGON2_PARALLELISM,
+        Some(KEY_LEN),
+    )
+    .map_err(|_| CryptoError::KdfFailure)?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut master_seed = Zeroizing::new([0u8; KEY_LEN]);
+    argon2
+        .hash_password_into(item_password, item_lock_salt, master_seed.as_mut())
+        .map_err(|_| CryptoError::KdfFailure)?;
+
+    let hk = Hkdf::<Sha256>::new(Some(item_lock_salt), master_seed.as_ref());
+    let mut item_key = Zeroizing::new([0u8; KEY_LEN]);
+    hk.expand(b"superxsecret.v1.item_lock.aead_key", item_key.as_mut())
+        .map_err(|_| CryptoError::HkdfFailure)?;
+    Ok(item_key)
+}
+
+pub fn build_item_lock_aad(item_uuid: &str, schema_version: u16) -> Vec<u8> {
+    format!(
+        "superxsecret.v1.item_lock:{}|v{}",
+        item_uuid, schema_version
+    )
+    .into_bytes()
+}
+
+pub fn generate_item_lock_salt() -> [u8; SALT_LEN] {
+    let mut salt = [0u8; SALT_LEN];
+    OsRng.fill_bytes(&mut salt);
+    salt
+}
+
+pub fn encrypt_item_inner_layer(
+    item_password: &[u8],
+    item_lock_salt: &[u8; SALT_LEN],
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let item_key = derive_item_lock_key(item_password, item_lock_salt)?;
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(item_key.as_ref()));
+    let mut nonce = [0u8; NONCE_LEN];
+    OsRng.fill_bytes(&mut nonce);
+    let ciphertext = cipher
+        .encrypt(
+            Nonce::from_slice(&nonce),
             Payload {
-                msg: ciphertext,
-                aad: record_aad,
+                msg: plaintext,
+                aad,
             },
         )
         .map_err(|_| CryptoError::AeadFailure)?;
 
-    Ok(Zeroizing::new(plaintext))
+    let mut output = Vec::with_capacity(NONCE_LEN + ciphertext.len());
+    output.extend_from_slice(&nonce);
+    output.extend_from_slice(&ciphertext);
+    Ok(output)
 }
 
+pub fn decrypt_item_inner_layer(
+    item_password: &[u8],
+    item_lock_salt: &[u8; SALT_LEN],
+    nonce_and_ciphertext: &[u8],
+    aad: &[u8],
+) -> Result<Zeroizing<Vec<u8>>, CryptoError> {
+    if nonce_and_ciphertext.len() <= NONCE_LEN + 16 {
+        return Err(CryptoError::InvalidLength);
+    }
+
+    let (nonce, ciphertext) = nonce_and_ciphertext.split_at(NONCE_LEN);
+    let item_key = derive_item_lock_key(item_password, item_lock_salt)?;
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(item_key.as_ref()));
+    let plaintext = Zeroizing::new(
+        cipher
+            .decrypt(
+                Nonce::from_slice(nonce),
+                Payload {
+                    msg: ciphertext,
+                    aad,
+                },
+            )
+            .map_err(|_| CryptoError::AeadFailure)?,
+    );
+    Ok(plaintext)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_item_lock_aad, decrypt_item_inner_layer, encrypt_item_inner_layer, SALT_LEN,
+    };
+
+    #[test]
+    fn item_inner_layer_requires_password_and_record_aad() {
+        let salt = [0xA5; SALT_LEN];
+        let aad = build_item_lock_aad("item-1", 2);
+        let ciphertext =
+            encrypt_item_inner_layer(b"separate item password", &salt, b"private", &aad).unwrap();
+
+        let plaintext =
+            decrypt_item_inner_layer(b"separate item password", &salt, &ciphertext, &aad).unwrap();
+        assert_eq!(plaintext.as_slice(), b"private");
+        assert!(decrypt_item_inner_layer(b"wrong password", &salt, &ciphertext, &aad).is_err());
+        assert!(decrypt_item_inner_layer(
+            b"separate item password",
+            &salt,
+            &ciphertext,
+            &build_item_lock_aad("item-2", 2),
+        )
+        .is_err());
+    }
+}

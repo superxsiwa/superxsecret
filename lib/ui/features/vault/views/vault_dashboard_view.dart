@@ -967,18 +967,24 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     try {
       final isTest =
           WidgetsBinding.instance.runtimeType.toString().contains('Test');
-      final revealFuture = widget.viewModel.revealSecretJit(item.itemUuid);
+      final decryptFuture =
+          widget.viewModel.decryptSecretPayload(item.itemUuid);
+      final DecodedTopicSecret secret;
       if (isTest) {
-        await revealFuture;
+        secret = await decryptFuture;
       } else {
-        await Future.wait([
-          revealFuture,
+        final results = await Future.wait([
+          decryptFuture,
           Future<void>.delayed(const Duration(milliseconds: estimatedMs)),
         ]);
+        secret = results[0] as DecodedTopicSecret;
       }
       _openingTracker?.complete();
       if (!isTest) {
         await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+      if (mounted) {
+        widget.viewModel.setActiveRevealedSecret(secret);
       }
     } on ItemLockedException {
       _openingTracker?.dispose();

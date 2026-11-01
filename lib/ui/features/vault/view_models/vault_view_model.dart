@@ -50,19 +50,22 @@ class VaultViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Just-In-Time (JIT) decryption of a single topic's Secret Text.
-  /// Automatically wipes the decrypted secret from RAM after 15 seconds.
-  Future<void> revealSecretJit(
+  /// Decrypts a topic's secret payload without immediately displaying it in UI.
+  Future<DecodedTopicSecret> decryptSecretPayload(
     String itemUuid, {
     String? overridePassword,
     String? itemPassword,
-  }) async {
-    _revealCountdownTimer?.cancel();
-    final secret = await _vaultRepository.revealSecretPayloadJit(
+  }) {
+    return _vaultRepository.revealSecretPayloadJit(
       itemUuid,
       overridePassword: overridePassword,
       itemPassword: itemPassword,
     );
+  }
+
+  /// Sets the active revealed secret and starts the 15-second ephemeral wipe timer.
+  void setActiveRevealedSecret(DecodedTopicSecret secret) {
+    _revealCountdownTimer?.cancel();
     _activeRevealedSecret = secret;
     _revealSecondsRemaining = 15;
     notifyListeners();
@@ -75,6 +78,21 @@ class VaultViewModel extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  /// Just-In-Time (JIT) decryption of a single topic's Secret Text.
+  /// Automatically wipes the decrypted secret from RAM after 15 seconds.
+  Future<void> revealSecretJit(
+    String itemUuid, {
+    String? overridePassword,
+    String? itemPassword,
+  }) async {
+    final secret = await decryptSecretPayload(
+      itemUuid,
+      overridePassword: overridePassword,
+      itemPassword: itemPassword,
+    );
+    setActiveRevealedSecret(secret);
   }
 
   /// Immediately wipes the JIT revealed secret from memory.

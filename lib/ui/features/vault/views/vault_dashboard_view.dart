@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -538,6 +539,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     var hasExtraLock = false;
     var passwordEntropyBits = 0.0;
     String? errorMsg;
+    var isEncoding = false;
+    var encodingPercent = 0.0;
+    var countdownSeconds = 1.0;
+    _EncodingProgressTracker? tracker;
 
     await showDialog<void>(
       context: context,
@@ -634,6 +639,13 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                             : 'Password Hint (Optional)',
                       ),
                     ),
+                    if (isEncoding) ...[
+                      const SizedBox(height: 12),
+                      _buildEncodingProgressWidget(
+                        percent: encodingPercent,
+                        countdownSeconds: countdownSeconds,
+                      ),
+                    ],
                     if (errorMsg != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -649,39 +661,79 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
+                  onPressed: isEncoding ? null : () => Navigator.of(ctx).pop(),
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () async {
-                    if (hasExtraLock &&
-                        (itemPasswordCtrl.text.length < 6 ||
-                            itemPasswordCtrl.text != confirmPasswordCtrl.text ||
-                            hintCtrl.text.trim().isEmpty)) {
-                      setDialogState(() {
-                        errorMsg = itemPasswordCtrl.text.length < 6
-                            ? 'Item Password must be at least 6 characters.'
-                            : itemPasswordCtrl.text != confirmPasswordCtrl.text
-                                ? 'Item passwords do not match.'
-                                : 'Password Hint is required for Extra Lock.';
-                      });
-                      return;
-                    }
-                    try {
-                      await widget.viewModel.createTopic(
-                        topic: topicCtrl.text,
-                        secretText: secretCtrl.text,
-                        hasExtraLock: hasExtraLock,
-                        itemPassword:
-                            hasExtraLock ? itemPasswordCtrl.text : null,
-                        passwordHint: hintCtrl.text,
-                      );
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                    } catch (e) {
-                      setDialogState(() => errorMsg = e.toString());
-                    }
-                  },
-                  child: const Text('Save'),
+                  onPressed: isEncoding
+                      ? null
+                      : () async {
+                          if (topicCtrl.text.trim().isEmpty ||
+                              secretCtrl.text.trim().isEmpty) {
+                            setDialogState(() {
+                              errorMsg = 'Topic and Secret Text are required.';
+                            });
+                            return;
+                          }
+                          if (hasExtraLock &&
+                              (itemPasswordCtrl.text.length < 6 ||
+                                  itemPasswordCtrl.text !=
+                                      confirmPasswordCtrl.text ||
+                                  hintCtrl.text.trim().isEmpty)) {
+                            setDialogState(() {
+                              errorMsg = itemPasswordCtrl.text.length < 6
+                                  ? 'Item Password must be at least 6 characters.'
+                                  : itemPasswordCtrl.text !=
+                                          confirmPasswordCtrl.text
+                                      ? 'Item passwords do not match.'
+                                      : 'Password Hint is required for Extra Lock.';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            isEncoding = true;
+                            errorMsg = null;
+                            encodingPercent = 0.0;
+                            countdownSeconds = hasExtraLock ? 1.6 : 1.0;
+                          });
+
+                          tracker = _EncodingProgressTracker(
+                            estimatedDuration: Duration(
+                              milliseconds: hasExtraLock ? 1600 : 1000,
+                            ),
+                            onUpdate: (pct, remaining) {
+                              setDialogState(() {
+                                encodingPercent = pct;
+                                countdownSeconds = remaining;
+                              });
+                            },
+                          )..start();
+
+                          try {
+                            await widget.viewModel.createTopic(
+                              topic: topicCtrl.text,
+                              secretText: secretCtrl.text,
+                              hasExtraLock: hasExtraLock,
+                              itemPassword:
+                                  hasExtraLock ? itemPasswordCtrl.text : null,
+                              passwordHint: hintCtrl.text,
+                            );
+                            tracker?.complete();
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 150),
+                            );
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                          } catch (e) {
+                            tracker?.dispose();
+                            setDialogState(() {
+                              isEncoding = false;
+                              errorMsg = e.toString();
+                            });
+                          }
+                        },
+                  child: isEncoding
+                      ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
+                      : const Text('Save'),
                 ),
               ],
             );
@@ -723,6 +775,86 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           valueColor: AlwaysStoppedAnimation<Color>(color),
         ),
       ],
+    );
+  }
+
+  Widget _buildEncodingProgressWidget({
+    required double percent,
+    required double countdownSeconds,
+    String title = 'Encoding data...',
+  }) {
+    final pctInt = (percent * 100).toInt().clamp(0, 100);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.emeraldSecure.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.emeraldSecure.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppTheme.emeraldSecure,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$title $pctInt%',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.emeraldSecure,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.emeraldSecure.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${countdownSeconds.toStringAsFixed(1)}s left',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.emeraldSecure,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percent.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.emeraldSecure,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -941,6 +1073,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     final confirmCtrl = TextEditingController();
     final hintCtrl = TextEditingController(text: item.passwordHint);
     String? errorMessage;
+    var isEncoding = false;
+    var encodingPercent = 0.0;
+    var countdownSeconds = 1.5;
+    _EncodingProgressTracker? tracker;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -983,6 +1119,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 enableSuggestions: false,
                 decoration: const InputDecoration(labelText: 'Password Hint'),
               ),
+              if (isEncoding) ...[
+                const SizedBox(height: 12),
+                _buildEncodingProgressWidget(
+                  percent: encodingPercent,
+                  countdownSeconds: countdownSeconds,
+                  title: 'Re-encrypting item...',
+                ),
+              ],
               if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -995,38 +1139,68 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
+              onPressed:
+                  isEncoding ? null : () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () async {
-                if (passwordCtrl.text.length < 6 ||
-                    passwordCtrl.text != confirmCtrl.text ||
-                    hintCtrl.text.trim().isEmpty) {
-                  setDialogState(() {
-                    errorMessage = passwordCtrl.text.length < 6
-                        ? 'Item Password must be at least 6 characters.'
-                        : passwordCtrl.text != confirmCtrl.text
-                            ? 'Item passwords do not match.'
-                            : 'Password Hint is required.';
-                  });
-                  return;
-                }
-                try {
-                  await widget.viewModel.setItemExtraLock(
-                    itemUuid: item.itemUuid,
-                    newItemPassword: passwordCtrl.text,
-                    passwordHint: hintCtrl.text,
-                    currentItemPassword: currentItemPassword,
-                  );
-                  if (dialogContext.mounted) {
-                    Navigator.of(dialogContext).pop();
-                  }
-                } catch (error) {
-                  setDialogState(() => errorMessage = error.toString());
-                }
-              },
-              child: const Text('Save'),
+              onPressed: isEncoding
+                  ? null
+                  : () async {
+                      if (passwordCtrl.text.length < 6 ||
+                          passwordCtrl.text != confirmCtrl.text ||
+                          hintCtrl.text.trim().isEmpty) {
+                        setDialogState(() {
+                          errorMessage = passwordCtrl.text.length < 6
+                              ? 'Item Password must be at least 6 characters.'
+                              : passwordCtrl.text != confirmCtrl.text
+                                  ? 'Item passwords do not match.'
+                                  : 'Password Hint is required.';
+                        });
+                        return;
+                      }
+                      setDialogState(() {
+                        isEncoding = true;
+                        errorMessage = null;
+                        encodingPercent = 0.0;
+                        countdownSeconds = 1.5;
+                      });
+
+                      tracker = _EncodingProgressTracker(
+                        estimatedDuration: const Duration(milliseconds: 1500),
+                        onUpdate: (pct, remaining) {
+                          setDialogState(() {
+                            encodingPercent = pct;
+                            countdownSeconds = remaining;
+                          });
+                        },
+                      )..start();
+
+                      try {
+                        await widget.viewModel.setItemExtraLock(
+                          itemUuid: item.itemUuid,
+                          newItemPassword: passwordCtrl.text,
+                          passwordHint: hintCtrl.text,
+                          currentItemPassword: currentItemPassword,
+                        );
+                        tracker?.complete();
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 150),
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                      } catch (error) {
+                        tracker?.dispose();
+                        setDialogState(() {
+                          isEncoding = false;
+                          errorMessage = error.toString();
+                        });
+                      }
+                    },
+              child: isEncoding
+                  ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
+                  : const Text('Save'),
             ),
           ],
         ),
@@ -1220,6 +1394,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     final filePwdCtrl = TextEditingController();
     String? sxsiPacket;
     String? errorMsg;
+    var isEncoding = false;
+    var encodingPercent = 0.0;
+    var countdownSeconds = 1.0;
+    _EncodingProgressTracker? tracker;
 
     showDialog<void>(
       context: context,
@@ -1248,6 +1426,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         labelText: 'File Password',
                       ),
                     ),
+                    if (isEncoding) ...[
+                      const SizedBox(height: 12),
+                      _buildEncodingProgressWidget(
+                        percent: encodingPercent,
+                        countdownSeconds: countdownSeconds,
+                        title: 'Encoding .sxsi container...',
+                      ),
+                    ],
                     if (sxsiPacket != null) ...[
                       const SizedBox(height: 12),
                       SelectableText(
@@ -1290,24 +1476,58 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                     label: const Text('Copy'),
                   ),
                 FilledButton(
-                  onPressed: () async {
-                    try {
-                      final packet =
-                          await widget.viewModel.exportSingleItemSxsi(
-                        itemUuid: item.itemUuid,
-                        filePassword: filePwdCtrl.text,
-                        itemPassword: itemPassword,
-                        overridePassword: overridePassword,
-                      );
-                      setDialogState(() {
-                        sxsiPacket = packet;
-                        errorMsg = null;
-                      });
-                    } catch (e) {
-                      setDialogState(() => errorMsg = e.toString());
-                    }
-                  },
-                  child: const Text('Create .sxsi'),
+                  onPressed: isEncoding
+                      ? null
+                      : () async {
+                          if (filePwdCtrl.text.trim().isEmpty) {
+                            setDialogState(() {
+                              errorMsg = 'File Password is required.';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            isEncoding = true;
+                            errorMsg = null;
+                            encodingPercent = 0.0;
+                            countdownSeconds = 1.0;
+                          });
+
+                          tracker = _EncodingProgressTracker(
+                            estimatedDuration:
+                                const Duration(milliseconds: 1000),
+                            onUpdate: (pct, remaining) {
+                              setDialogState(() {
+                                encodingPercent = pct;
+                                countdownSeconds = remaining;
+                              });
+                            },
+                          )..start();
+
+                          try {
+                            final packet =
+                                await widget.viewModel.exportSingleItemSxsi(
+                              itemUuid: item.itemUuid,
+                              filePassword: filePwdCtrl.text,
+                              itemPassword: itemPassword,
+                              overridePassword: overridePassword,
+                            );
+                            tracker?.complete();
+                            setDialogState(() {
+                              isEncoding = false;
+                              sxsiPacket = packet;
+                              errorMsg = null;
+                            });
+                          } catch (e) {
+                            tracker?.dispose();
+                            setDialogState(() {
+                              isEncoding = false;
+                              errorMsg = e.toString();
+                            });
+                          }
+                        },
+                  child: isEncoding
+                      ? Text('Encoding ${(encodingPercent * 100).toInt()}%...')
+                      : const Text('Create .sxsi'),
                 ),
               ],
             );
@@ -1517,5 +1737,41 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         );
       },
     );
+  }
+}
+
+class _EncodingProgressTracker {
+  _EncodingProgressTracker({
+    required this.estimatedDuration,
+    required this.onUpdate,
+  });
+
+  final Duration estimatedDuration;
+  final void Function(double percent, double countdownSeconds) onUpdate;
+
+  Timer? _timer;
+  final Stopwatch _stopwatch = Stopwatch();
+
+  void start() {
+    _stopwatch.reset();
+    _stopwatch.start();
+    _timer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      final elapsedMs = _stopwatch.elapsedMilliseconds;
+      final totalMs = estimatedDuration.inMilliseconds;
+      final progress = (elapsedMs / totalMs).clamp(0.0, 0.95);
+      final remainingMs = (totalMs - elapsedMs).clamp(0, totalMs);
+      onUpdate(progress, remainingMs / 1000.0);
+    });
+  }
+
+  void complete() {
+    _timer?.cancel();
+    _stopwatch.stop();
+    onUpdate(1.0, 0.0);
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _stopwatch.stop();
   }
 }

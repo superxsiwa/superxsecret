@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
@@ -71,14 +72,54 @@ class RustVaultFfiService {
 
   final Map<String, _EncryptedSecret> _mainEncryptedSecrets = {};
   final Map<String, _EncryptedSecret> _secondaryEncryptedSecrets = {};
-  static final _passwordKdf = Argon2id(
-    parallelism: 4,
-    memory: 65536,
-    iterations: 3,
-    hashLength: 32,
-  );
   static final _passwordHkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
   static final _itemCipher = AesGcm.with256bits();
+
+  static final List<int> _masterSeedSalt = Uint8List.fromList(
+    utf8.encode('superxsecret.v1.master_seed.salt'),
+  );
+
+  final Map<String, Uint8List> _masterSeedCache = {};
+  final Map<String, Future<Uint8List>> _pendingSeedDerivations = {};
+
+  static Future<Uint8List> _computeArgon2idSeed(
+    String password,
+    List<int> salt,
+  ) async {
+    final kdf = Argon2id(
+      parallelism: 4,
+      memory: 65536,
+      iterations: 3,
+      hashLength: 32,
+    );
+    final secretKey = await kdf.deriveKey(
+      secretKey: SecretKey(utf8.encode(password)),
+      nonce: salt,
+    );
+    final bytes = await secretKey.extractBytes();
+    return Uint8List.fromList(bytes);
+  }
+
+  Future<SecretKey> _getMasterSeed(String password) async {
+    final cached = _masterSeedCache[password];
+    if (cached != null) {
+      return SecretKey(cached);
+    }
+    var pending = _pendingSeedDerivations[password];
+    if (pending == null) {
+      pending = Isolate.run(
+        () => _computeArgon2idSeed(password, _masterSeedSalt),
+      );
+      _pendingSeedDerivations[password] = pending;
+    }
+    try {
+      final bytes = await pending;
+      _masterSeedCache[password] = bytes;
+      return SecretKey(bytes);
+    } finally {
+      _pendingSeedDerivations.remove(password);
+    }
+  }
 
   /// Estimates offline password entropy (in bits) based on character pool & pattern diversity.
   double calculatePasswordEntropyBits(String password) {
@@ -168,11 +209,16 @@ class RustVaultFfiService {
     throw StateError('Wrong password');
   }
 
-  /// Immediately zeroes the active DEK in memory and closes the SQLCipher session.
+  /// Immediately zeroes the active DEK and session master seed cache in memory and closes the SQLCipher session.
   void lockAndZeroizeVault() {
     _activeSessionMode = null;
     _activeSessionPassword = '';
     _activePasswordHint = '';
+    _pendingSeedDerivations.clear();
+    for (final bytes in _masterSeedCache.values) {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+    _masterSeedCache.clear();
   }
 
   /// Returns non-sensitive topic summaries for the currently unlocked vault partition.
@@ -209,6 +255,26 @@ class RustVaultFfiService {
       throw StateError('Vault session password is unavailable');
     }
 
+    final legacySecrets = mode == VaultSessionMode.secondaryVault
+        ? _legacySecondarySecretTexts
+        : _legacyMainSecretTexts;
+    final legacySecret = legacySecrets[itemUuid];
+    if (legacySecret != null && !summary.hasExtraLock) {
+      final encrypted = await _encryptItemSecret(
+        itemUuid: itemUuid,
+        secretText: legacySecret,
+        password: _activeSessionPassword,
+      );
+      _encryptedSecretsFor(mode)[itemUuid] = encrypted;
+      legacySecrets.remove(itemUuid);
+      return DecodedTopicSecret(
+        itemUuid: summary.itemUuid,
+        topic: summary.topic,
+        secretText: legacySecret,
+        passwordHint: summary.passwordHint,
+      );
+    }
+
     final encryptedSecret = await _encryptedSecretFor(summary, mode);
     if (encryptedSecret == null) {
       throw StateError('Topic not found or AAD tag mismatch');
@@ -219,6 +285,9 @@ class RustVaultFfiService {
       password: password,
       passwordHint: summary.passwordHint,
     );
+    if (summary.hasExtraLock && itemPassword == null) {
+      throw ItemLockedException(summary.passwordHint);
+    }
     final secretText = summary.hasExtraLock
         ? await _decryptInnerPayload(
             itemUuid: itemUuid,
@@ -592,12 +661,9 @@ class RustVaultFfiService {
     List<int> salt,
     String info,
   ) async {
-    final argonKey = await _passwordKdf.deriveKey(
-      secretKey: SecretKey(utf8.encode(password)),
-      nonce: salt,
-    );
+    final masterSeed = await _getMasterSeed(password);
     return _passwordHkdf.deriveKey(
-      secretKey: argonKey,
+      secretKey: masterSeed,
       nonce: salt,
       info: utf8.encode(info),
     );

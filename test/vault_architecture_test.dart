@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +62,19 @@ void main() {
       final decoded = await repository.revealSecretPayloadJit(summary.itemUuid);
       expect(decoded.topic, equals('GitHub Recovery'));
       expect(decoded.secretText, equals('ghp_OfflineZeroKnowledgeToken2026'));
+    });
+
+    test('First reveal migrates a legacy item without decrypting it twice',
+        () async {
+      await repository.unlockVault('LegacyMigrationPassword1');
+
+      final firstReveal =
+          await repository.revealSecretPayloadJit('topic-main-01');
+      expect(firstReveal.secretText, contains('user@proton.me'));
+
+      final subsequentReveal =
+          await repository.revealSecretPayloadJit('topic-main-01');
+      expect(subsequentReveal.secretText, firstReveal.secretText);
     });
 
     test(
@@ -318,6 +332,52 @@ void main() {
       expect(sxsBytes.sublist(0, 4), equals([0x53, 0x58, 0x53, 0x56]));
     });
 
+    testWidgets('View shows progress while the secret is being unlocked',
+        (tester) async {
+      final item = VaultTopicSummary(
+        itemUuid: 'delayed-view',
+        topic: 'Delayed item',
+        updatedAt: DateTime(2026),
+      );
+      final service = _DelayedViewService(item);
+      final viewModel = VaultViewModel(
+        vaultRepository: VaultRepository(
+          rustFfiService: service,
+          osHardeningService: OsHardeningService(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: VaultDashboardView(
+            viewModel: viewModel,
+            onLockRequested: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('View'));
+      await tester.pump();
+      expect(find.text('Opening...'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      service.revealCompleter.complete(
+        DecodedTopicSecret(
+          itemUuid: item.itemUuid,
+          topic: item.topic,
+          secretText: 'revealed secret',
+        ),
+      );
+      await tester.pump();
+      expect(find.text('revealed secret'), findsOneWidget);
+      expect(find.text('Opening...'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      viewModel.dispose();
+    });
+
     testWidgets(
         'Unlocked VaultDashboardView renders identical UI without Main/Fake badges',
         (tester) async {
@@ -402,4 +462,24 @@ void main() {
       authViewModel.dispose();
     });
   });
+}
+
+class _DelayedViewService extends RustVaultFfiService {
+  _DelayedViewService(this.summary);
+
+  final VaultTopicSummary summary;
+  final Completer<DecodedTopicSecret> revealCompleter =
+      Completer<DecodedTopicSecret>();
+
+  @override
+  Future<List<VaultTopicSummary>> listSummaries() async => [summary];
+
+  @override
+  Future<DecodedTopicSecret> decryptPayloadJit(
+    String itemUuid, {
+    String? overridePassword,
+    String? itemPassword,
+  }) {
+    return revealCompleter.future;
+  }
 }

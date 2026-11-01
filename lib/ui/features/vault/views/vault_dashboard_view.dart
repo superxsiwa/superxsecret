@@ -21,6 +21,8 @@ class VaultDashboardView extends StatefulWidget {
 }
 
 class _VaultDashboardViewState extends State<VaultDashboardView> {
+  String? _openingItemUuid;
+
   @override
   void initState() {
     super.initState();
@@ -182,6 +184,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   Widget _buildSummaryCard(BuildContext context, VaultTopicSummary item) {
     final isRevealed =
         widget.viewModel.activeRevealedSecret?.itemUuid == item.itemUuid;
+    final isOpening = _openingItemUuid == item.itemUuid;
 
     return Card(
       shape: RoundedRectangleBorder(
@@ -304,11 +307,18 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                         AppTheme.emeraldSecure.withValues(alpha: 0.16),
                     foregroundColor: AppTheme.emeraldSecure,
                   ),
-                  onPressed: () => _viewItem(item),
-                  icon: const Icon(Icons.visibility_rounded, size: 16),
-                  label: const Text(
-                    'View',
-                    style: TextStyle(
+                  onPressed:
+                      _openingItemUuid == null ? () => _viewItem(item) : null,
+                  icon: isOpening
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.visibility_rounded, size: 16),
+                  label: Text(
+                    isOpening ? 'Opening...' : 'View',
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -688,6 +698,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
   Future<void> _viewItem(
     VaultTopicSummary item,
   ) async {
+    if (_openingItemUuid != null) return;
+    setState(() => _openingItemUuid = item.itemUuid);
     try {
       await widget.viewModel.revealSecretJit(item.itemUuid);
     } on ItemLockedException {
@@ -709,6 +721,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
       );
     } catch (error) {
       if (mounted) _showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _openingItemUuid = null);
     }
   }
 
@@ -740,7 +754,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     VaultTopicSummary item,
   ) async {
     try {
-      await widget.viewModel.verifyItemPassword(item.itemUuid);
+      await widget.viewModel.verifyVaultPassword(item.itemUuid);
+      if (item.hasExtraLock) {
+        throw ItemLockedException(item.passwordHint);
+      }
       if (mounted) {
         _showShareSxsiDialog(context, item);
       }
@@ -776,10 +793,13 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     String? vaultPassword,
   ) async {
     try {
-      await widget.viewModel.verifyItemPassword(
+      await widget.viewModel.verifyVaultPassword(
         item.itemUuid,
         overridePassword: vaultPassword,
       );
+      if (item.hasExtraLock) {
+        throw ItemLockedException(item.passwordHint);
+      }
       if (mounted) {
         _showShareSxsiDialog(
           context,

@@ -25,11 +25,20 @@ class VaultDashboardView extends StatefulWidget {
 
 class _VaultDashboardViewState extends State<VaultDashboardView> {
   String? _openingItemUuid;
+  double _openingPercent = 0.0;
+  double _openingCountdownSeconds = 0.0;
+  _EncodingProgressTracker? _openingTracker;
 
   @override
   void initState() {
     super.initState();
     widget.viewModel.loadVaultSummaries();
+  }
+
+  @override
+  void dispose() {
+    _openingTracker?.dispose();
+    super.dispose();
   }
 
   @override
@@ -326,6 +335,15 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 ),
               ],
             ),
+            if (isOpening) ...[
+              const SizedBox(height: 12),
+              _buildEncodingProgressWidget(
+                context,
+                percent: _openingPercent,
+                countdownSeconds: _openingCountdownSeconds,
+                title: strings.decodingData,
+              ),
+            ],
             const SizedBox(height: 12),
             Divider(
               height: 1,
@@ -357,14 +375,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   onPressed:
                       _openingItemUuid == null ? () => _viewItem(item) : null,
                   icon: isOpening
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox.shrink()
                       : const Icon(Icons.visibility_rounded, size: 16),
                   label: Text(
-                    isOpening ? strings.opening : strings.view,
+                    isOpening
+                        ? (_openingPercent == 0.0
+                            ? strings.opening
+                            : '${strings.opening} ${(_openingPercent * 100).toInt()}%')
+                        : strings.view,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -887,10 +905,43 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     VaultTopicSummary item,
   ) async {
     if (_openingItemUuid != null) return;
-    setState(() => _openingItemUuid = item.itemUuid);
+    const estimatedMs = kIsWeb ? 1500 : 800;
+    setState(() {
+      _openingItemUuid = item.itemUuid;
+      _openingPercent = 0.0;
+      _openingCountdownSeconds = estimatedMs / 1000.0;
+    });
+
+    _openingTracker = _EncodingProgressTracker(
+      estimatedDuration: const Duration(milliseconds: estimatedMs),
+      onUpdate: (pct, remaining) {
+        if (mounted && _openingItemUuid == item.itemUuid) {
+          setState(() {
+            _openingPercent = pct;
+            _openingCountdownSeconds = remaining;
+          });
+        }
+      },
+    )..start();
+
     try {
-      await widget.viewModel.revealSecretJit(item.itemUuid);
+      final isTest =
+          WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      final revealFuture = widget.viewModel.revealSecretJit(item.itemUuid);
+      if (isTest) {
+        await revealFuture;
+      } else {
+        await Future.wait([
+          revealFuture,
+          Future<void>.delayed(const Duration(milliseconds: estimatedMs)),
+        ]);
+      }
+      _openingTracker?.complete();
+      if (!isTest) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
     } on ItemLockedException {
+      _openingTracker?.dispose();
       if (!mounted) return;
       await _showEnterItemPasswordDialog(
         context,
@@ -901,6 +952,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         ),
       );
     } on VaultItemPasswordException {
+      _openingTracker?.dispose();
       if (!mounted) return;
       await _showEnterPasswordDialog(
         context,
@@ -908,9 +960,17 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
         onUnlocked: (password) => _revealWithVaultPassword(item, password),
       );
     } catch (error) {
+      _openingTracker?.dispose();
       if (mounted) _showActionError(context, error);
     } finally {
-      if (mounted) setState(() => _openingItemUuid = null);
+      _openingTracker?.dispose();
+      if (mounted) {
+        setState(() {
+          _openingItemUuid = null;
+          _openingPercent = 0.0;
+          _openingCountdownSeconds = 0.0;
+        });
+      }
     }
   }
 

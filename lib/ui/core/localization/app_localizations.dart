@@ -124,6 +124,7 @@ class AppStrings {
     required this.confirmPasswordLabel,
     required this.extraLockWarning,
     required this.encodingData,
+    required this.decodingData,
     required this.reEncryptingItem,
     required this.encodingSxsiContainer,
     required this.secondsLeft,
@@ -219,6 +220,7 @@ class AppStrings {
   final String confirmPasswordLabel;
   final String extraLockWarning;
   final String encodingData;
+  final String decodingData;
   final String reEncryptingItem;
   final String encodingSxsiContainer;
   final String Function(String sec) secondsLeft;
@@ -312,6 +314,7 @@ class AppStrings {
     extraLockWarning:
         'If you forget this password, the item cannot be recovered.',
     encodingData: 'Encoding data...',
+    decodingData: 'Decoding data...',
     reEncryptingItem: 'Re-encrypting item...',
     encodingSxsiContainer: 'Encoding .sxsi container...',
     secondsLeft: (sec) => '${sec}s left',
@@ -408,6 +411,7 @@ class AppStrings {
     extraLockWarning:
         'หากลืมรหัสผ่านนี้ ข้อมูลรายการนี้จะไม่สามารถกู้คืนได้ทุกกรณี',
     encodingData: 'กำลังเข้ารหัสข้อมูล...',
+    decodingData: 'กำลังถอดรหัสข้อมูล...',
     reEncryptingItem: 'กำลังเข้ารหัสข้อมูลใหม่...',
     encodingSxsiContainer: 'กำลังสร้างไฟล์ .sxsi...',
     secondsLeft: (sec) => 'เหลือ $sec วิ',

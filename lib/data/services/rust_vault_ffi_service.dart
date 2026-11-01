@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/models/vault_models.dart';
 
 /// Service bridging Flutter to the Rust Security Core (`superxsecret_core`).
@@ -107,9 +107,13 @@ class RustVaultFfiService {
     }
     var pending = _pendingSeedDerivations[password];
     if (pending == null) {
-      pending = Isolate.run(
-        () => _computeArgon2idSeed(password, _masterSeedSalt),
-      );
+      if (kIsWeb) {
+        pending = _computeArgon2idSeed(password, _masterSeedSalt);
+      } else {
+        pending = Isolate.run(
+          () => _computeArgon2idSeed(password, _masterSeedSalt),
+        );
+      }
       _pendingSeedDerivations[password] = pending;
     }
     try {

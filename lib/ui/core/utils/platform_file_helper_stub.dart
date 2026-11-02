@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'picked_file_data.dart';
 
 void downloadFile({
   required String fileName,
@@ -23,20 +24,6 @@ Future<Uint8List?> pickFileBytes({
   List<String> allowedExtensions = const ['sxsi', 'sxs', 'bin'],
 }) async {
   return null;
-}
-
-class PickedFileData {
-  const PickedFileData({
-    required this.name,
-    required this.size,
-    required this.bytes,
-    this.mimeType,
-  });
-
-  final String name;
-  final int size;
-  final Uint8List bytes;
-  final String? mimeType;
 }
 
 Future<PickedFileData?> pickAnyFile({

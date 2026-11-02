@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'dart:typed_data';
+import 'picked_file_data.dart';
 
 void downloadFile({
   required String fileName,
@@ -53,20 +54,6 @@ Future<Uint8List?> pickFileBytes({
   if (result is Uint8List) return result;
   if (result is List<int>) return Uint8List.fromList(result);
   return null;
-}
-
-class PickedFileData {
-  const PickedFileData({
-    required this.name,
-    required this.size,
-    required this.bytes,
-    this.mimeType,
-  });
-
-  final String name;
-  final int size;
-  final Uint8List bytes;
-  final String? mimeType;
 }
 
 Future<PickedFileData?> pickAnyFile({

@@ -1,9 +1,10 @@
 import 'dart:typed_data';
+import 'picked_file_data.dart';
 
 import 'platform_file_helper_stub.dart'
     if (dart.library.html) 'platform_file_helper_web.dart' as impl;
 
-export 'platform_file_helper_stub.dart' show PickedFileData;
+export 'picked_file_data.dart' show PickedFileData;
 
 abstract final class PlatformFileHelper {
   static void downloadFile({
@@ -26,7 +27,7 @@ abstract final class PlatformFileHelper {
     return impl.pickFileBytes(allowedExtensions: allowedExtensions);
   }
 
-  static Future<impl.PickedFileData?> pickAnyFile({
+  static Future<PickedFileData?> pickAnyFile({
     List<String>? allowedExtensions,
     String? mimeTypeFilter,
   }) {

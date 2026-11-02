@@ -39,6 +39,7 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
   late final AuthViewModel _authViewModel;
   late final VaultViewModel _vaultViewModel;
   final AppLanguageController _languageController = AppLanguageController();
+  final AppThemeController _themeController = AppThemeController();
   bool _isVaultUnlocked = false;
 
   @override
@@ -68,6 +69,7 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
   @override
   void dispose() {
     _languageController.dispose();
+    _themeController.dispose();
     _authViewModel.dispose();
     _vaultViewModel.dispose();
     super.dispose();
@@ -76,30 +78,35 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _languageController,
+      listenable: Listenable.merge([_languageController, _themeController]),
       builder: (context, _) {
         return AppLanguageScope(
           controller: _languageController,
-          child: MaterialApp(
-            title: 'SuperXSecret Offline Vault',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.darkVaultTheme,
-            builder: (context, child) {
-              return PrivacyCurtainWrapper(
-                onBackgroundAutoLock: _handleImmediateAutoLock,
-                child: child ?? const SizedBox.shrink(),
-              );
-            },
-            home: _isVaultUnlocked
-                ? VaultDashboardView(
-                    viewModel: _vaultViewModel,
-                    onLockRequested: _handleImmediateAutoLock,
-                  )
-                : LockScreenView(
-                    viewModel: _authViewModel,
-                    onVaultUnlocked: () =>
-                        setState(() => _isVaultUnlocked = true),
-                  ),
+          child: AppThemeScope(
+            controller: _themeController,
+            child: MaterialApp(
+              title: 'SuperXSecret Offline Vault',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightVaultTheme,
+              darkTheme: AppTheme.darkVaultTheme,
+              themeMode: _themeController.themeMode,
+              builder: (context, child) {
+                return PrivacyCurtainWrapper(
+                  onBackgroundAutoLock: _handleImmediateAutoLock,
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
+              home: _isVaultUnlocked
+                  ? VaultDashboardView(
+                      viewModel: _vaultViewModel,
+                      onLockRequested: _handleImmediateAutoLock,
+                    )
+                  : LockScreenView(
+                      viewModel: _authViewModel,
+                      onVaultUnlocked: () =>
+                          setState(() => _isVaultUnlocked = true),
+                    ),
+            ),
           ),
         );
       },

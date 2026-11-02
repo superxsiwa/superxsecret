@@ -95,6 +95,19 @@ class _LockScreenViewState extends State<LockScreenView> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
+                            tooltip: strings.theme,
+                            icon: Icon(
+                              AppTheme.isDarkMode(context)
+                                  ? Icons.dark_mode_rounded
+                                  : Icons.light_mode_rounded,
+                              color: AppTheme.emeraldSecure,
+                            ),
+                            onPressed: () => showThemeSelectionDialog(
+                              context,
+                              AppThemeScope.of(context),
+                            ),
+                          ),
+                          IconButton(
                             tooltip: strings.language,
                             icon: const Icon(
                               Icons.language_rounded,
@@ -114,7 +127,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                           height: 72,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppTheme.surfaceCard,
+                            color: AppTheme.surfaceCardOf(context),
                             border: Border.all(
                               color: AppTheme.emeraldSecure
                                   .withValues(alpha: 0.45),
@@ -137,24 +150,24 @@ class _LockScreenViewState extends State<LockScreenView> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      const Text(
+                      Text(
                         'SuperXSecret',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
-                          color: AppTheme.textPrimary,
+                          color: AppTheme.textPrimaryOf(context),
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         strings.zeroKnowledgeSecurity,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -163,8 +176,8 @@ class _LockScreenViewState extends State<LockScreenView> {
                       Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: const BorderSide(
-                            color: AppTheme.borderHighlight,
+                          side: BorderSide(
+                            color: AppTheme.borderHighlightOf(context),
                           ),
                         ),
                         child: Padding(
@@ -193,10 +206,10 @@ class _LockScreenViewState extends State<LockScreenView> {
                                                 ? strings.setupDualSlot
                                                 : strings.unlockVault,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 16,
-                                              color: AppTheme.textPrimary,
+                                              color: AppTheme.textPrimaryOf(context),
                                             ),
                                           ),
                                         ),

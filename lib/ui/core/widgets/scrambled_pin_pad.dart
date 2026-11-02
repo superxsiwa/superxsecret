@@ -87,10 +87,10 @@ class _ScrambledPinPadState extends State<ScrambledPinPad> {
           childAspectRatio: 2.15,
           children: [
             for (var i = 0; i < 9; i++)
-              _buildDigitButton(_digits[i].toString()),
+              _buildDigitButton(context, _digits[i].toString()),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                backgroundColor: AppTheme.obsidianDeep,
+                backgroundColor: AppTheme.surfaceElevatedOf(context),
                 foregroundColor: AppTheme.cyberCyan,
                 side: BorderSide(
                   color: AppTheme.cyberCyan.withValues(alpha: 0.35),
@@ -106,10 +106,10 @@ class _ScrambledPinPadState extends State<ScrambledPinPad> {
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Shuffle', style: TextStyle(fontSize: 11.5)),
             ),
-            _buildDigitButton(_digits[9].toString()),
+            _buildDigitButton(context, _digits[9].toString()),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                backgroundColor: AppTheme.obsidianDeep,
+                backgroundColor: AppTheme.surfaceElevatedOf(context),
                 foregroundColor: AppTheme.amberWarning,
                 side: BorderSide(
                   color: AppTheme.amberWarning.withValues(alpha: 0.35),
@@ -127,15 +127,15 @@ class _ScrambledPinPadState extends State<ScrambledPinPad> {
     );
   }
 
-  Widget _buildDigitButton(String digit) {
+  Widget _buildDigitButton(BuildContext context, String digit) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.surfaceElevated,
-        foregroundColor: AppTheme.textPrimary,
+        backgroundColor: AppTheme.surfaceElevatedOf(context),
+        foregroundColor: AppTheme.textPrimaryOf(context),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppTheme.borderHighlight),
+          side: BorderSide(color: AppTheme.borderHighlightOf(context)),
         ),
       ),
       onPressed: () => widget.onDigitPressed(digit),

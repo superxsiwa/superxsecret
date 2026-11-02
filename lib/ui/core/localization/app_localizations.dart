@@ -64,6 +64,14 @@ class AppStrings {
     required this.thaiLabel,
     required this.systemLanguageLabel,
     required this.selectLanguage,
+    required this.theme,
+    required this.selectTheme,
+    required this.lightTheme,
+    required this.lightThemeDesc,
+    required this.darkTheme,
+    required this.darkThemeDesc,
+    required this.systemTheme,
+    required this.systemThemeDesc,
     required this.cancel,
     required this.save,
     required this.close,
@@ -187,6 +195,14 @@ class AppStrings {
   final String thaiLabel;
   final String systemLanguageLabel;
   final String selectLanguage;
+  final String theme;
+  final String selectTheme;
+  final String lightTheme;
+  final String lightThemeDesc;
+  final String darkTheme;
+  final String darkThemeDesc;
+  final String systemTheme;
+  final String systemThemeDesc;
   final String cancel;
   final String save;
   final String close;
@@ -316,6 +332,14 @@ class AppStrings {
     thaiLabel: 'ไทย (Thai)',
     systemLanguageLabel: 'System language',
     selectLanguage: 'Select Language',
+    theme: 'Theme',
+    selectTheme: 'Select Theme',
+    lightTheme: 'Day (Light)',
+    lightThemeDesc: 'Crisp, high-contrast light vault',
+    darkTheme: 'Night (Dark)',
+    darkThemeDesc: 'OLED obsidian dark vault',
+    systemTheme: 'System Default',
+    systemThemeDesc: 'Matches device appearance',
     cancel: 'Cancel',
     save: 'Save',
     close: 'Close',
@@ -447,6 +471,14 @@ class AppStrings {
     thaiLabel: 'ไทย (Thai)',
     systemLanguageLabel: 'ภาษาตามระบบ',
     selectLanguage: 'เลือกภาษา (Select Language)',
+    theme: 'ธีม',
+    selectTheme: 'เลือกธีม (Select Theme)',
+    lightTheme: 'กลางวัน (Light)',
+    lightThemeDesc: 'ธีมสว่าง คมชัด มองเห็นง่าย',
+    darkTheme: 'กลางคืน (Dark)',
+    darkThemeDesc: 'ธีมมืด ออบซิเดียน ถนอมสายตา ปลอดภัย',
+    systemTheme: 'ตามระบบ (System)',
+    systemThemeDesc: 'เปลี่ยนตามการตั้งค่าของอุปกรณ์',
     cancel: 'ยกเลิก',
     save: 'บันทึก',
     close: 'ปิด',

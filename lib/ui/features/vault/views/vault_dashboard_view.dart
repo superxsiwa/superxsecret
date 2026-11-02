@@ -142,7 +142,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
               tabAlignment: TabAlignment.start,
               indicatorColor: AppTheme.emeraldSecure,
               labelColor: AppTheme.emeraldSecure,
-              unselectedLabelColor: Colors.white60,
+              unselectedLabelColor: AppTheme.textSecondaryOf(context),
               tabs: [
                 Tab(
                   icon: const Icon(Icons.notes_rounded, size: 18),
@@ -172,6 +172,18 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: strings.theme,
+                icon: Icon(
+                  AppTheme.isDarkMode(context)
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                ),
+                onPressed: () => showThemeSelectionDialog(
+                  context,
+                  AppThemeScope.of(context),
+                ),
+              ),
               IconButton(
                 tooltip: strings.language,
                 icon: const Icon(Icons.language_rounded),
@@ -265,15 +277,16 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                               Icon(
                                 _categoryIcon(_selectedCategory),
                                 size: 48,
-                                color: Colors.white24,
+                                color: AppTheme.textMutedOf(context)
+                                    .withValues(alpha: 0.4),
                               ),
                               const SizedBox(height: 12),
                               Text(
                                 strings.noItemsInCategory(
                                   _categoryName(_selectedCategory, strings),
                                 ),
-                                style: const TextStyle(
-                                  color: Colors.white54,
+                                style: TextStyle(
+                                  color: AppTheme.textMutedOf(context),
                                   fontSize: 14,
                                 ),
                               ),
@@ -344,7 +357,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
         side: BorderSide(
           color: isRevealed
               ? AppTheme.emeraldSecure.withValues(alpha: 0.7)
-              : AppTheme.borderSubtle,
+              : AppTheme.borderSubtleOf(context),
           width: isRevealed ? 1.5 : 1.0,
         ),
       ),
@@ -381,10 +394,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                           Flexible(
                             child: Text(
                               item.topic,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 15.5,
-                                color: AppTheme.textPrimary,
+                                color: AppTheme.textPrimaryOf(context),
                               ),
                             ),
                           ),
@@ -408,7 +421,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
                     ],
@@ -478,7 +491,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
             const SizedBox(height: 12),
             Divider(
               height: 1,
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppTheme.borderSubtleOf(context),
             ),
             const SizedBox(height: 10),
             Row(
@@ -538,7 +551,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceElevated,
+        color: AppTheme.surfaceElevatedOf(context),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.emeraldSecure, width: 1.5),
         boxShadow: [
@@ -592,7 +605,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 4,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              backgroundColor: AppTheme.borderSubtleOf(context),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppTheme.emeraldSecure,
               ),
@@ -638,10 +651,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                   '${secret.fileName ?? "image.png"} (${_formatBytes(secret.fileSizeBytes ?? secret.rawBytes!.length)})',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontFamily: 'monospace',
-                    color: Colors.white70,
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                 ),
               ),
@@ -680,9 +693,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: AppTheme.surfaceCardOf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: AppTheme.borderSubtleOf(context)),
             ),
             child: Row(
               children: [
@@ -709,9 +722,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         _formatBytes(
                           secret.fileSizeBytes ?? secret.rawBytes!.length,
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white60,
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
                     ],
@@ -753,9 +766,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: AppTheme.surfaceCardOf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: AppTheme.borderSubtleOf(context)),
             ),
             child: Row(
               children: [
@@ -782,9 +795,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         _formatBytes(
                           secret.fileSizeBytes ?? secret.rawBytes!.length,
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white60,
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
                     ],
@@ -826,9 +839,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: AppTheme.surfaceCardOf(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: AppTheme.borderSubtleOf(context)),
             ),
             child: Row(
               children: [
@@ -855,9 +868,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         _formatBytes(
                           secret.fileSizeBytes ?? secret.rawBytes!.length,
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white60,
+                          color: AppTheme.textSecondaryOf(context),
                         ),
                       ),
                     ],
@@ -907,7 +920,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                   label,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AppTheme.textSecondaryOf(context),
                   ),
                 ),
                 SelectableText(
@@ -1006,9 +1019,11 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black26,
+                        color: AppTheme.surfaceElevatedOf(context),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(
+                          color: AppTheme.borderSubtleOf(context),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1039,7 +1054,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
                                 size: 18,
-                                color: Colors.white70,
+                                color: AppTheme.textSecondaryOf(context),
                               ),
                               onPressed: isSaving
                                   ? null
@@ -1639,7 +1654,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
         LinearProgressIndicator(
           value: strength,
           minHeight: 4,
-          backgroundColor: Colors.white.withValues(alpha: 0.08),
+          backgroundColor: AppTheme.borderSubtleOf(context),
           valueColor: AlwaysStoppedAnimation<Color>(color),
         ),
       ],
@@ -1718,7 +1733,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
             child: LinearProgressIndicator(
               value: percent.clamp(0.0, 1.0),
               minHeight: 6,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              backgroundColor: AppTheme.borderSubtleOf(context),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppTheme.emeraldSecure,
               ),

@@ -13,3 +13,4 @@ class PickedFileData {
   final Uint8List bytes;
   final String? mimeType;
 }
+

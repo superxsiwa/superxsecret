@@ -1523,14 +1523,14 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                       : () async {
                           if (topicCtrl.text.trim().isEmpty) {
                             setDialogState(() {
-                              errorMsg = 'Topic is required.';
+                              errorMsg = 'Name is required.';
                             });
                             return;
                           }
                           if (selectedCategory == VaultItemCategory.text &&
                               secretCtrl.text.trim().isEmpty) {
                             setDialogState(() {
-                              errorMsg = 'Topic and Secret Text are required.';
+                              errorMsg = 'Name and Secret Text are required.';
                             });
                             return;
                           }

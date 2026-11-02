@@ -934,61 +934,205 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     );
   }
 
-  void _showScrambledKeypadDemoSheet(BuildContext context) {
+  void _showScrambledKeypadDemoSheet(
+    BuildContext context, {
+    ValueChanged<String>? onPinSaved,
+  }) {
     final strings = AppLanguageScope.stringsOf(context);
+    final isThai = AppLanguageScope.of(context).isThai(context);
+    final topicCtrl = TextEditingController(
+      text: isThai ? 'รหัส PIN' : 'PIN Code',
+    );
     var enteredPin = '';
+    var obscurePin = true;
+    var isSaving = false;
+
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppTheme.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
             return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    strings.scrambledPinPad,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    enteredPin.isEmpty
-                        ? strings.tapDigitsBelow
-                        : '• ' * enteredPin.length,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      letterSpacing: 4,
-                      color: AppTheme.emeraldSecure,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ScrambledPinPad(
-                    onDigitPressed: (d) {
-                      if (enteredPin.length < 6) {
-                        setModalState(() => enteredPin += d);
-                      }
-                    },
-                    onBackspace: () {
-                      if (enteredPin.isNotEmpty) {
-                        setModalState(
-                          () => enteredPin = enteredPin.substring(
-                            0,
-                            enteredPin.length - 1,
+              padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          strings.scrambledPinPad,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
                           ),
-                        );
-                      }
-                    },
-                    onReshuffle: () => setModalState(() => enteredPin = ''),
-                  ),
-                ],
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (onPinSaved == null) ...[
+                      TextField(
+                        controller: topicCtrl,
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: InputDecoration(
+                          labelText: strings.topicFieldLabel,
+                          prefixIcon: const Icon(Icons.tag_rounded, size: 18),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              enteredPin.isEmpty
+                                  ? strings.tapDigitsBelow
+                                  : (obscurePin
+                                      ? '• ' * enteredPin.length
+                                      : enteredPin),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: enteredPin.isEmpty ? 13 : 22,
+                                letterSpacing: enteredPin.isEmpty ? 0 : 4,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.emeraldSecure,
+                                fontFamily: enteredPin.isEmpty ? null : 'monospace',
+                              ),
+                            ),
+                          ),
+                          if (enteredPin.isNotEmpty)
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: obscurePin ? 'Show' : 'Hide',
+                              icon: Icon(
+                                obscurePin
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                size: 18,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () => setModalState(
+                                () => obscurePin = !obscurePin,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ScrambledPinPad(
+                      onDigitPressed: (d) {
+                        if (enteredPin.length < 12) {
+                          setModalState(() => enteredPin += d);
+                        }
+                      },
+                      onBackspace: () {
+                        if (enteredPin.isNotEmpty) {
+                          setModalState(
+                            () => enteredPin = enteredPin.substring(
+                              0,
+                              enteredPin.length - 1,
+                            ),
+                          );
+                        }
+                      },
+                      onReshuffle: () => setModalState(() => enteredPin = ''),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: Text(strings.cancel),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: enteredPin.isEmpty || isSaving
+                                ? null
+                                : () async {
+                                    if (onPinSaved != null) {
+                                      onPinSaved(enteredPin);
+                                      Navigator.of(ctx).pop();
+                                      return;
+                                    }
+                                    setModalState(() => isSaving = true);
+                                    final topic = topicCtrl.text.trim().isEmpty
+                                        ? (isThai ? 'รหัส PIN' : 'PIN Code')
+                                        : topicCtrl.text.trim();
+                                    await widget.viewModel.createTopic(
+                                      topic: topic,
+                                      secretText: enteredPin,
+                                      category: VaultItemCategory.text,
+                                    );
+                                    if (ctx.mounted) {
+                                      Navigator.of(ctx).pop();
+                                    }
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            isThai
+                                                ? 'บันทึก "$topic" เรียบร้อยแล้ว'
+                                                : 'Saved "$topic" successfully',
+                                          ),
+                                          backgroundColor: AppTheme.emeraldSecure,
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: isSaving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_rounded, size: 18),
+                            label: Text(strings.save),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
         );
       },
-    );
+    ).whenComplete(() {
+      topicCtrl.dispose();
+    });
   }
 
   String _cipherTypeName(VaultCipherType cipher, AppStrings strings) {
@@ -1087,6 +1231,20 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         enableSuggestions: false,
                         decoration: InputDecoration(
                           labelText: strings.secretTextFieldLabel,
+                          suffixIcon: IconButton(
+                            tooltip: strings.pinPad,
+                            icon: const Icon(Icons.dialpad_rounded, size: 20),
+                            onPressed: () {
+                              _showScrambledKeypadDemoSheet(
+                                context,
+                                onPinSaved: (pin) {
+                                  setDialogState(() {
+                                    secretCtrl.text = pin;
+                                  });
+                                },
+                              );
+                            },
+                          ),
                         ),
                       )
                     else ...[

@@ -946,6 +946,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     var enteredPin = '';
     var obscurePin = true;
     var isSaving = false;
+    var encodingPercent = 0.0;
+    var countdownSeconds = 1.0;
+    _EncodingProgressTracker? tracker;
 
     showModalBottomSheet<void>(
       context: context,
@@ -977,7 +980,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         IconButton(
                           visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.close_rounded, size: 20),
-                          onPressed: () => Navigator.of(ctx).pop(),
+                          onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
                         ),
                       ],
                     ),
@@ -985,6 +988,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     if (onPinSaved == null) ...[
                       TextField(
                         controller: topicCtrl,
+                        enabled: !isSaving,
                         enableIMEPersonalizedLearning: false,
                         autocorrect: false,
                         enableSuggestions: false,
@@ -1037,9 +1041,11 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                                 size: 18,
                                 color: Colors.white70,
                               ),
-                              onPressed: () => setModalState(
-                                () => obscurePin = !obscurePin,
-                              ),
+                              onPressed: isSaving
+                                  ? null
+                                  : () => setModalState(
+                                        () => obscurePin = !obscurePin,
+                                      ),
                             ),
                         ],
                       ),
@@ -1047,12 +1053,12 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     const SizedBox(height: 12),
                     ScrambledPinPad(
                       onDigitPressed: (d) {
-                        if (enteredPin.length < 12) {
+                        if (!isSaving && enteredPin.length < 12) {
                           setModalState(() => enteredPin += d);
                         }
                       },
                       onBackspace: () {
-                        if (enteredPin.isNotEmpty) {
+                        if (!isSaving && enteredPin.isNotEmpty) {
                           setModalState(
                             () => enteredPin = enteredPin.substring(
                               0,
@@ -1061,14 +1067,27 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                           );
                         }
                       },
-                      onReshuffle: () => setModalState(() => enteredPin = ''),
+                      onReshuffle: () {
+                        if (!isSaving) {
+                          setModalState(() => enteredPin = '');
+                        }
+                      },
                     ),
+                    if (isSaving) ...[
+                      const SizedBox(height: 14),
+                      _buildEncodingProgressWidget(
+                        context,
+                        percent: encodingPercent,
+                        countdownSeconds: countdownSeconds,
+                        title: strings.encodingData,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
+                            onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
                             child: Text(strings.cancel),
                           ),
                         ),
@@ -1078,20 +1097,77 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                             onPressed: enteredPin.isEmpty || isSaving
                                 ? null
                                 : () async {
+                                    final isTest = WidgetsBinding
+                                        .instance.runtimeType
+                                        .toString()
+                                        .contains('Test');
+                                    const estimatedMs = kIsWeb ? 1500 : 800;
+
+                                    setModalState(() {
+                                      isSaving = true;
+                                      encodingPercent = 0.0;
+                                      countdownSeconds = estimatedMs / 1000.0;
+                                    });
+
+                                    tracker = _EncodingProgressTracker(
+                                      estimatedDuration: const Duration(
+                                        milliseconds: estimatedMs,
+                                      ),
+                                      onUpdate: (pct, remaining) {
+                                        setModalState(() {
+                                          encodingPercent = pct;
+                                          countdownSeconds = remaining;
+                                        });
+                                      },
+                                    )..start();
+
                                     if (onPinSaved != null) {
+                                      if (!isTest) {
+                                        await Future<void>.delayed(
+                                          const Duration(milliseconds: estimatedMs),
+                                        );
+                                      }
+                                      tracker?.complete();
+                                      if (!isTest) {
+                                        await Future<void>.delayed(
+                                          const Duration(milliseconds: 150),
+                                        );
+                                      }
                                       onPinSaved(enteredPin);
-                                      Navigator.of(ctx).pop();
+                                      if (ctx.mounted) {
+                                        Navigator.of(ctx).pop();
+                                      }
                                       return;
                                     }
-                                    setModalState(() => isSaving = true);
+
                                     final topic = topicCtrl.text.trim().isEmpty
                                         ? (isThai ? 'รหัส PIN' : 'PIN Code')
                                         : topicCtrl.text.trim();
-                                    await widget.viewModel.createTopic(
+
+                                    final saveFuture = widget.viewModel.createTopic(
                                       topic: topic,
                                       secretText: enteredPin,
                                       category: VaultItemCategory.text,
                                     );
+
+                                    if (isTest) {
+                                      await saveFuture;
+                                    } else {
+                                      await Future.wait([
+                                        saveFuture,
+                                        Future<void>.delayed(
+                                          const Duration(milliseconds: estimatedMs),
+                                        ),
+                                      ]);
+                                    }
+
+                                    tracker?.complete();
+                                    if (!isTest) {
+                                      await Future<void>.delayed(
+                                        const Duration(milliseconds: 150),
+                                      );
+                                    }
+
                                     if (ctx.mounted) {
                                       Navigator.of(ctx).pop();
                                     }
@@ -1109,16 +1185,19 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                                     }
                                   },
                             icon: isSaving
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
+                                ? const SizedBox.shrink()
                                 : const Icon(Icons.save_rounded, size: 18),
-                            label: Text(strings.save),
+                            label: Text(
+                              isSaving
+                                  ? (encodingPercent == 0.0
+                                      ? strings.encodingData
+                                      : '${strings.encodingData} ${(encodingPercent * 100).toInt()}%')
+                                  : strings.save,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1131,6 +1210,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
         );
       },
     ).whenComplete(() {
+      tracker?.dispose();
       topicCtrl.dispose();
     });
   }

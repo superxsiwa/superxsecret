@@ -21,8 +21,16 @@ class AppLanguageController extends ChangeNotifier {
   bool isThai(BuildContext context) {
     if (_currentLanguage == AppLanguage.thai) return true;
     if (_currentLanguage == AppLanguage.english) return false;
-    final locale = View.of(context).platformDispatcher.locale;
-    return locale.languageCode.toLowerCase() == 'th';
+    try {
+      final locale = Localizations.maybeLocaleOf(context) ??
+          View.maybeOf(context)?.platformDispatcher.locale ??
+          WidgetsBinding.instance.platformDispatcher.locale;
+      return locale.languageCode.toLowerCase() == 'th';
+    } catch (_) {
+      return WidgetsBinding.instance.platformDispatcher.locale.languageCode
+              .toLowerCase() ==
+          'th';
+    }
   }
 
   AppStrings strings(BuildContext context) {

@@ -8,7 +8,7 @@ enum AppThemeMode {
 }
 
 class AppThemeController extends ChangeNotifier {
-  AppThemeMode _currentThemeMode = AppThemeMode.dark;
+  AppThemeMode _currentThemeMode = AppThemeMode.system;
 
   AppThemeMode get currentThemeMode => _currentThemeMode;
 
@@ -30,8 +30,13 @@ class AppThemeController extends ChangeNotifier {
       case AppThemeMode.dark:
         return true;
       case AppThemeMode.system:
-        final brightness = MediaQuery.platformBrightnessOf(context);
-        return brightness == Brightness.dark;
+        try {
+          return MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+        } catch (_) {
+          return WidgetsBinding
+                  .instance.platformDispatcher.platformBrightness ==
+              Brightness.dark;
+        }
     }
   }
 

@@ -135,6 +135,11 @@ class VaultRepository {
     String? itemPassword,
     String passwordHint = '',
     VaultCipherType cipherType = VaultCipherType.aes256Gcm,
+    VaultItemCategory category = VaultItemCategory.text,
+    String? fileName,
+    int? fileSizeBytes,
+    String? mimeType,
+    Uint8List? rawBytes,
   }) {
     return _rustFfiService.createNewTopic(
       topic: topic,
@@ -143,6 +148,11 @@ class VaultRepository {
       itemPassword: itemPassword,
       passwordHint: passwordHint,
       cipherType: cipherType,
+      category: category,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes,
+      mimeType: mimeType,
+      rawBytes: rawBytes,
     );
   }
 

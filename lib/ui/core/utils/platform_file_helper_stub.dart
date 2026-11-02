@@ -25,3 +25,24 @@ Future<Uint8List?> pickFileBytes({
   return null;
 }
 
+class PickedFileData {
+  const PickedFileData({
+    required this.name,
+    required this.size,
+    required this.bytes,
+    this.mimeType,
+  });
+
+  final String name;
+  final int size;
+  final Uint8List bytes;
+  final String? mimeType;
+}
+
+Future<PickedFileData?> pickAnyFile({
+  List<String>? allowedExtensions,
+  String? mimeTypeFilter,
+}) async {
+  return null;
+}
+

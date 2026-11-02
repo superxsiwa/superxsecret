@@ -54,3 +54,54 @@ Future<Uint8List?> pickFileBytes({
   if (result is List<int>) return Uint8List.fromList(result);
   return null;
 }
+
+class PickedFileData {
+  const PickedFileData({
+    required this.name,
+    required this.size,
+    required this.bytes,
+    this.mimeType,
+  });
+
+  final String name;
+  final int size;
+  final Uint8List bytes;
+  final String? mimeType;
+}
+
+Future<PickedFileData?> pickAnyFile({
+  List<String>? allowedExtensions,
+  String? mimeTypeFilter,
+}) async {
+  final input = html.FileUploadInputElement();
+  if (mimeTypeFilter != null && mimeTypeFilter.isNotEmpty) {
+    input.accept = mimeTypeFilter;
+  } else if (allowedExtensions != null && allowedExtensions.isNotEmpty) {
+    input.accept = allowedExtensions.map((e) => '.$e').join(',');
+  }
+  input.click();
+
+  await input.onChange.first;
+  if (input.files == null || input.files!.isEmpty) return null;
+
+  final file = input.files!.first;
+  final reader = html.FileReader();
+  reader.readAsArrayBuffer(file);
+  await reader.onLoad.first;
+  final result = reader.result;
+  final Uint8List bytes;
+  if (result is Uint8List) {
+    bytes = result;
+  } else if (result is List<int>) {
+    bytes = Uint8List.fromList(result);
+  } else {
+    return null;
+  }
+
+  return PickedFileData(
+    name: file.name,
+    size: file.size,
+    bytes: bytes,
+    mimeType: file.type.isNotEmpty ? file.type : null,
+  );
+}

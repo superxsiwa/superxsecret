@@ -5,6 +5,8 @@
 /// Just-In-Time (JIT) for a 15-second ephemeral window.
 library;
 
+import 'dart:typed_data';
+
 enum VaultSessionMode {
   mainVault,
   secondaryVault,
@@ -26,6 +28,16 @@ class DeviceSecurityPosture {
   final bool hasRootOrJailbreak;
   final bool isDebuggerOrFridaDetected;
   final bool sqlCipherActive;
+}
+
+enum VaultItemCategory {
+  text,
+  image,
+  audio,
+  video,
+  file;
+
+  String get id => name;
 }
 
 enum VaultCipherType {
@@ -59,6 +71,9 @@ class VaultTopicSummary {
     this.hasExtraLock = false,
     this.passwordHint = '',
     this.cipherType = VaultCipherType.aes256Gcm,
+    this.category = VaultItemCategory.text,
+    this.fileName,
+    this.fileSizeBytes,
   });
 
   final String itemUuid;
@@ -67,6 +82,9 @@ class VaultTopicSummary {
   final bool hasExtraLock;
   final String passwordHint;
   final VaultCipherType cipherType;
+  final VaultItemCategory category;
+  final String? fileName;
+  final int? fileSizeBytes;
 }
 
 class DecodedTopicSecret {
@@ -77,6 +95,11 @@ class DecodedTopicSecret {
     this.hasExtraLock = false,
     this.passwordHint = '',
     this.cipherType = VaultCipherType.aes256Gcm,
+    this.category = VaultItemCategory.text,
+    this.fileName,
+    this.fileSizeBytes,
+    this.mimeType,
+    this.rawBytes,
   });
 
   final String itemUuid;
@@ -85,6 +108,11 @@ class DecodedTopicSecret {
   final bool hasExtraLock;
   final String passwordHint;
   final VaultCipherType cipherType;
+  final VaultItemCategory category;
+  final String? fileName;
+  final int? fileSizeBytes;
+  final String? mimeType;
+  final Uint8List? rawBytes;
 }
 
 class ItemLockedException extends StateError {

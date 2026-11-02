@@ -161,6 +161,24 @@ class AppStrings {
     required this.restoreSxsLabel,
     required this.exportSxs,
     required this.restoreSxs,
+    required this.tabText,
+    required this.tabImage,
+    required this.tabAudio,
+    required this.tabVideo,
+    required this.tabFile,
+    required this.selectFile,
+    required this.selectImage,
+    required this.selectAudio,
+    required this.selectVideo,
+    required this.changeFile,
+    required this.fileSelectedInfo,
+    required this.downloadDecryptedFile,
+    required this.downloadDecryptedImage,
+    required this.downloadDecryptedAudio,
+    required this.downloadDecryptedVideo,
+    required this.noItemsInCategory,
+    required this.categoryLabel,
+    required this.optionalSecretNote,
   });
 
   final String appName;
@@ -272,6 +290,24 @@ class AppStrings {
   final String restoreSxsLabel;
   final String exportSxs;
   final String restoreSxs;
+  final String tabText;
+  final String tabImage;
+  final String tabAudio;
+  final String tabVideo;
+  final String tabFile;
+  final String selectFile;
+  final String selectImage;
+  final String selectAudio;
+  final String selectVideo;
+  final String changeFile;
+  final String Function(String name, String size) fileSelectedInfo;
+  final String downloadDecryptedFile;
+  final String downloadDecryptedImage;
+  final String downloadDecryptedAudio;
+  final String downloadDecryptedVideo;
+  final String Function(String category) noItemsInCategory;
+  final String categoryLabel;
+  final String optionalSecretNote;
 
   static final AppStrings english = AppStrings(
     appName: 'SuperXSecret',
@@ -384,6 +420,24 @@ class AppStrings {
     restoreSxsLabel: 'Restore .sxs (Base64 URL)',
     exportSxs: 'Export .sxs',
     restoreSxs: 'Restore .sxs',
+    tabText: 'Text',
+    tabImage: 'Images',
+    tabAudio: 'Audio',
+    tabVideo: 'Videos',
+    tabFile: 'Files',
+    selectFile: 'Select File',
+    selectImage: 'Select Image',
+    selectAudio: 'Select Audio',
+    selectVideo: 'Select Video',
+    changeFile: 'Change File',
+    fileSelectedInfo: (name, size) => '$name ($size)',
+    downloadDecryptedFile: 'Download File',
+    downloadDecryptedImage: 'Download Image',
+    downloadDecryptedAudio: 'Download Audio',
+    downloadDecryptedVideo: 'Download Video',
+    noItemsInCategory: (category) => 'No $category found',
+    categoryLabel: 'Category',
+    optionalSecretNote: 'Optional note or description',
   );
 
   static final AppStrings thai = AppStrings(
@@ -497,6 +551,24 @@ class AppStrings {
     restoreSxsLabel: 'กู้คืนข้อมูล .sxs (Base64 URL)',
     exportSxs: 'ส่งออก .sxs',
     restoreSxs: 'กู้คืน .sxs',
+    tabText: 'ข้อความ',
+    tabImage: 'รูปภาพ',
+    tabAudio: 'ไฟล์เสียง',
+    tabVideo: 'วิดีโอ',
+    tabFile: 'ไฟล์ทั่วไป',
+    selectFile: 'เลือกไฟล์',
+    selectImage: 'เลือกรูปภาพ',
+    selectAudio: 'เลือกไฟล์เสียง',
+    selectVideo: 'เลือกไฟล์วิดีโอ',
+    changeFile: 'เปลี่ยนไฟล์',
+    fileSelectedInfo: (name, size) => '$name ($size)',
+    downloadDecryptedFile: 'ดาวน์โหลดไฟล์',
+    downloadDecryptedImage: 'ดาวน์โหลดรูปภาพ',
+    downloadDecryptedAudio: 'ดาวน์โหลดไฟล์เสียง',
+    downloadDecryptedVideo: 'ดาวน์โหลดวิดีโอ',
+    noItemsInCategory: (category) => 'ยังไม่มีข้อมูลในหมวดหมู่ $category',
+    categoryLabel: 'หมวดหมู่',
+    optionalSecretNote: 'บันทึกหรือข้อความประกอบ (ไม่บังคับ)',
   );
 }
 

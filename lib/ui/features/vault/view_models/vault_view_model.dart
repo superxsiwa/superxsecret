@@ -104,7 +104,7 @@ class VaultViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Creates a new Topic + Secret Text record in the active vault.
+  /// Creates a new Topic item (text or media file) in the active vault.
   Future<VaultTopicSummary> createTopic({
     required String topic,
     required String secretText,
@@ -112,6 +112,11 @@ class VaultViewModel extends ChangeNotifier {
     String? itemPassword,
     String passwordHint = '',
     VaultCipherType cipherType = VaultCipherType.aes256Gcm,
+    VaultItemCategory category = VaultItemCategory.text,
+    String? fileName,
+    int? fileSizeBytes,
+    String? mimeType,
+    Uint8List? rawBytes,
   }) async {
     final created = await _vaultRepository.saveTopic(
       topic: topic,
@@ -120,6 +125,11 @@ class VaultViewModel extends ChangeNotifier {
       itemPassword: itemPassword,
       passwordHint: passwordHint,
       cipherType: cipherType,
+      category: category,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes,
+      mimeType: mimeType,
+      rawBytes: rawBytes,
     );
     await loadVaultSummaries();
     return created;

@@ -310,7 +310,7 @@ class RustVaultFfiService {
     if (summary.hasExtraLock && itemPassword == null) {
       throw ItemLockedException(summary.passwordHint);
     }
-    final secretText = summary.hasExtraLock
+    final rawDecryptedText = summary.hasExtraLock
         ? await _decryptInnerPayload(
             itemUuid: itemUuid,
             encryptedPayload: encryptedPayload,
@@ -319,6 +319,38 @@ class RustVaultFfiService {
             passwordHint: summary.passwordHint,
           )
         : utf8.decode(encryptedPayload);
+
+    String secretText;
+    VaultItemCategory category = summary.category;
+    String? fileName = summary.fileName;
+    int? fileSizeBytes = summary.fileSizeBytes;
+    String? mimeType;
+    Uint8List? rawBytes;
+
+    if (rawDecryptedText.startsWith('SX_PAYLOAD:')) {
+      try {
+        final jsonStr = rawDecryptedText.substring(11);
+        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        secretText = (map['text'] as String?) ?? '';
+        final catName = map['cat'] as String?;
+        category = VaultItemCategory.values.firstWhere(
+          (c) => c.name == catName,
+          orElse: () => summary.category,
+        );
+        fileName = (map['fileName'] as String?) ?? summary.fileName;
+        fileSizeBytes = (map['fileSize'] as int?) ?? summary.fileSizeBytes;
+        mimeType = map['mimeType'] as String?;
+        final rawB64 = map['rawB64'] as String?;
+        if (rawB64 != null) {
+          rawBytes = base64Decode(rawB64);
+        }
+      } catch (_) {
+        secretText = rawDecryptedText;
+      }
+    } else {
+      secretText = rawDecryptedText;
+    }
+
     return DecodedTopicSecret(
       itemUuid: summary.itemUuid,
       topic: summary.topic,
@@ -326,6 +358,11 @@ class RustVaultFfiService {
       hasExtraLock: summary.hasExtraLock,
       passwordHint: summary.passwordHint,
       cipherType: summary.cipherType,
+      category: category,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes,
+      mimeType: mimeType,
+      rawBytes: rawBytes,
     );
   }
 
@@ -498,7 +535,7 @@ class RustVaultFfiService {
     );
   }
 
-  /// Creates a new Topic + Secret Text item in the active vault partition.
+  /// Creates a new Topic item (text, image, audio, video, or general file) in the active vault partition.
   Future<VaultTopicSummary> createNewTopic({
     required String topic,
     required String secretText,
@@ -506,14 +543,22 @@ class RustVaultFfiService {
     String? itemPassword,
     String passwordHint = '',
     VaultCipherType cipherType = VaultCipherType.aes256Gcm,
+    VaultItemCategory category = VaultItemCategory.text,
+    String? fileName,
+    int? fileSizeBytes,
+    String? mimeType,
+    Uint8List? rawBytes,
   }) async {
     final mode = _activeSessionMode;
     if (mode == null) {
       throw StateError('Vault is locked');
     }
     final cleanTopic = topic.trim();
-    if (cleanTopic.isEmpty || secretText.trim().isEmpty) {
-      throw ArgumentError('Topic and Secret Text are required');
+    if (cleanTopic.isEmpty) {
+      throw ArgumentError('Topic is required');
+    }
+    if (secretText.trim().isEmpty && rawBytes == null) {
+      throw ArgumentError('Secret Text or File is required');
     }
     if (hasExtraLock) {
       if (itemPassword == null || itemPassword.length < 6) {
@@ -536,6 +581,9 @@ class RustVaultFfiService {
           ? _activePasswordHint
           : passwordHint.trim(),
       cipherType: cipherType,
+      category: category,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes ?? rawBytes?.length,
     );
     final encryptedSecret = await _encryptItemSecret(
       itemUuid: uuid,
@@ -544,6 +592,11 @@ class RustVaultFfiService {
       hasExtraLock: hasExtraLock,
       itemPassword: itemPassword,
       cipherType: cipherType,
+      category: category,
+      fileName: fileName,
+      fileSizeBytes: fileSizeBytes ?? rawBytes?.length,
+      mimeType: mimeType,
+      rawBytes: rawBytes,
     );
     _encryptedSecretsFor(mode)[uuid] = encryptedSecret;
     _summariesFor(mode).insert(0, summary);
@@ -614,8 +667,28 @@ class RustVaultFfiService {
     bool hasExtraLock = false,
     String? itemPassword,
     VaultCipherType cipherType = VaultCipherType.aes256Gcm,
+    VaultItemCategory category = VaultItemCategory.text,
+    String? fileName,
+    int? fileSizeBytes,
+    String? mimeType,
+    Uint8List? rawBytes,
   }) async {
-    var encryptedPayload = utf8.encode(secretText);
+    final List<int> payloadBytes;
+    if (category != VaultItemCategory.text || rawBytes != null || fileName != null) {
+      final map = {
+        'v': 2,
+        'cat': category.name,
+        'text': secretText,
+        'fileName': fileName,
+        'fileSize': fileSizeBytes ?? rawBytes?.length,
+        'mimeType': mimeType,
+        'rawB64': rawBytes != null ? base64Encode(rawBytes) : null,
+      };
+      payloadBytes = utf8.encode('SX_PAYLOAD:${jsonEncode(map)}');
+    } else {
+      payloadBytes = utf8.encode(secretText);
+    }
+    var encryptedPayload = Uint8List.fromList(payloadBytes);
     List<int>? itemLockSalt;
     if (hasExtraLock) {
       if (itemPassword == null || itemPassword.length < 6) {
@@ -926,6 +999,11 @@ class RustVaultFfiService {
       'topic': decoded.topic,
       'secretText': decoded.secretText,
       'cipherType': decoded.cipherType.name,
+      'category': decoded.category.name,
+      'fileName': decoded.fileName,
+      'fileSize': decoded.fileSizeBytes,
+      'mimeType': decoded.mimeType,
+      'rawB64': decoded.rawBytes != null ? base64Encode(decoded.rawBytes!) : null,
       'exportedAt': DateTime.now().toIso8601String(),
     };
     final plainBytes = utf8.encode(jsonEncode(payloadMap));
@@ -972,10 +1050,23 @@ class RustVaultFfiService {
       (c) => c.name == cipherTypeName,
       orElse: () => VaultCipherType.aes256Gcm,
     );
+    final categoryName = map['category'] as String?;
+    final category = VaultItemCategory.values.firstWhere(
+      (c) => c.name == categoryName,
+      orElse: () => VaultItemCategory.text,
+    );
+    final payloadRawB64 = map['rawB64'] as String?;
+    final rawBytes =
+        payloadRawB64 != null ? base64Decode(payloadRawB64) : null;
     return createNewTopic(
       topic: (map['topic'] as String?) ?? 'Imported Topic',
-      secretText: (map['secretText'] as String?) ?? '',
+      secretText: (map['secretText'] as String?) ?? (rawBytes != null ? 'Imported File' : ''),
       cipherType: cipherType,
+      category: category,
+      fileName: map['fileName'] as String?,
+      fileSizeBytes: map['fileSize'] as int?,
+      mimeType: map['mimeType'] as String?,
+      rawBytes: rawBytes,
     );
   }
 
@@ -1042,6 +1133,9 @@ class RustVaultFfiService {
           'hasExtraLock': summary.hasExtraLock,
           'passwordHint': summary.passwordHint,
           'cipherType': summary.cipherType.name,
+          'category': summary.category.name,
+          'fileName': summary.fileName,
+          'fileSizeBytes': summary.fileSizeBytes,
           'itemLockSalt': encrypted.itemLockSalt == null
               ? null
               : base64Url.encode(encrypted.itemLockSalt!),
@@ -1111,6 +1205,13 @@ class RustVaultFfiService {
         (c) => c.name == cipherTypeName,
         orElse: () => VaultCipherType.aes256Gcm,
       );
+      final categoryName = raw['category'] as String?;
+      final category = VaultItemCategory.values.firstWhere(
+        (c) => c.name == categoryName,
+        orElse: () => VaultItemCategory.text,
+      );
+      final fileName = raw['fileName'] as String?;
+      final fileSizeBytes = raw['fileSizeBytes'] as int?;
       restoredSummaries.add(VaultTopicSummary(
         itemUuid: uuid,
         topic: raw['topic'] as String,
@@ -1118,6 +1219,9 @@ class RustVaultFfiService {
         hasExtraLock: hasExtraLock,
         passwordHint: raw['passwordHint'] as String? ?? '',
         cipherType: cipherType,
+        category: category,
+        fileName: fileName,
+        fileSizeBytes: fileSizeBytes,
       ));
       restoredSecrets[uuid] = _EncryptedSecret(
         salt: base64Url.decode(secret['salt'] as String),

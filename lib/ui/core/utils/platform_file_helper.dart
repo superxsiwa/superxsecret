@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'platform_file_helper_stub.dart'
     if (dart.library.html) 'platform_file_helper_web.dart' as impl;
 
+export 'platform_file_helper_stub.dart' show PickedFileData;
+
 abstract final class PlatformFileHelper {
   static void downloadFile({
     required String fileName,
@@ -22,6 +24,16 @@ abstract final class PlatformFileHelper {
     List<String> allowedExtensions = const ['sxsi', 'sxs', 'bin'],
   }) {
     return impl.pickFileBytes(allowedExtensions: allowedExtensions);
+  }
+
+  static Future<impl.PickedFileData?> pickAnyFile({
+    List<String>? allowedExtensions,
+    String? mimeTypeFilter,
+  }) {
+    return impl.pickAnyFile(
+      allowedExtensions: allowedExtensions,
+      mimeTypeFilter: mimeTypeFilter,
+    );
   }
 }
 

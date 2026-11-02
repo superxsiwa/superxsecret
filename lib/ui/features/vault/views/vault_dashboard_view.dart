@@ -24,22 +24,86 @@ class VaultDashboardView extends StatefulWidget {
   State<VaultDashboardView> createState() => _VaultDashboardViewState();
 }
 
-class _VaultDashboardViewState extends State<VaultDashboardView> {
+class _VaultDashboardViewState extends State<VaultDashboardView>
+    with SingleTickerProviderStateMixin {
   String? _openingItemUuid;
   double _openingPercent = 0.0;
   double _openingCountdownSeconds = 0.0;
   _EncodingProgressTracker? _openingTracker;
+  late final TabController _tabController;
+  VaultItemCategory _selectedCategory = VaultItemCategory.text;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: VaultItemCategory.values.length,
+      vsync: this,
+    );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() {
+          _selectedCategory = VaultItemCategory.values[_tabController.index];
+        });
+      }
+    });
     widget.viewModel.loadVaultSummaries();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _openingTracker?.dispose();
     super.dispose();
+  }
+
+  IconData _categoryIcon(VaultItemCategory category) {
+    switch (category) {
+      case VaultItemCategory.text:
+        return Icons.notes_rounded;
+      case VaultItemCategory.image:
+        return Icons.image_rounded;
+      case VaultItemCategory.audio:
+        return Icons.audiotrack_rounded;
+      case VaultItemCategory.video:
+        return Icons.videocam_rounded;
+      case VaultItemCategory.file:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
+
+  String _categoryName(VaultItemCategory category, AppStrings strings) {
+    switch (category) {
+      case VaultItemCategory.text:
+        return strings.tabText;
+      case VaultItemCategory.image:
+        return strings.tabImage;
+      case VaultItemCategory.audio:
+        return strings.tabAudio;
+      case VaultItemCategory.video:
+        return strings.tabVideo;
+      case VaultItemCategory.file:
+        return strings.tabFile;
+    }
+  }
+
+  String _pickFileButtonLabel(VaultItemCategory category, AppStrings strings) {
+    switch (category) {
+      case VaultItemCategory.image:
+        return strings.selectImage;
+      case VaultItemCategory.audio:
+        return strings.selectAudio;
+      case VaultItemCategory.video:
+        return strings.selectVideo;
+      default:
+        return strings.selectFile;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   @override
@@ -51,6 +115,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
       builder: (context, _) {
         final items = widget.viewModel.filteredItems;
         final clipboardSecs = widget.viewModel.clipboardSecondsRemaining;
+        final categoryItems =
+            items.where((i) => i.category == _selectedCategory).toList();
 
         return Scaffold(
           appBar: AppBar(
@@ -67,6 +133,41 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 Text(
                   'SuperXSecret',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+              ],
+            ),
+            bottom: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorColor: AppTheme.emeraldSecure,
+              labelColor: AppTheme.emeraldSecure,
+              unselectedLabelColor: Colors.white60,
+              tabs: [
+                Tab(
+                  icon: const Icon(Icons.notes_rounded, size: 18),
+                  text:
+                      '${strings.tabText} (${items.where((i) => i.category == VaultItemCategory.text).length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.image_outlined, size: 18),
+                  text:
+                      '${strings.tabImage} (${items.where((i) => i.category == VaultItemCategory.image).length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.audiotrack_outlined, size: 18),
+                  text:
+                      '${strings.tabAudio} (${items.where((i) => i.category == VaultItemCategory.audio).length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.videocam_outlined, size: 18),
+                  text:
+                      '${strings.tabVideo} (${items.where((i) => i.category == VaultItemCategory.video).length})',
+                ),
+                Tab(
+                  icon: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                  text:
+                      '${strings.tabFile} (${items.where((i) => i.category == VaultItemCategory.file).length})',
                 ),
               ],
             ),
@@ -140,7 +241,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                           vertical: 14,
                         ),
                       ),
-                      onPressed: () => _showNewTopicDialog(context),
+                      onPressed: () => _showNewTopicDialog(
+                        context,
+                        initialCategory: _selectedCategory,
+                      ),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: Text(
                         strings.newTopicBtn,
@@ -151,16 +255,38 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                 ),
               ),
               Expanded(
-                child: items.isEmpty
+                child: categoryItems.isEmpty
                     ? Center(
-                        child: Text(strings.noTopicsFound),
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _categoryIcon(_selectedCategory),
+                                size: 48,
+                                color: Colors.white24,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                strings.noItemsInCategory(
+                                  _categoryName(_selectedCategory, strings),
+                                ),
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
-                        itemCount: items.length,
+                        itemCount: categoryItems.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final summary = items[index];
+                          final summary = categoryItems[index];
                           return _buildSummaryCard(context, summary);
                         },
                       ),
@@ -239,8 +365,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       color: AppTheme.emeraldSecure.withValues(alpha: 0.35),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.vpn_key_rounded,
+                  child: Icon(
+                    _categoryIcon(item.category),
                     color: AppTheme.emeraldSecure,
                     size: 20,
                   ),
@@ -274,7 +400,9 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '•••••••••••• • ${item.cipherType.badgeLabel}',
+                        item.fileName != null
+                            ? '${item.fileName} (${_formatBytes(item.fileSizeBytes ?? 0)}) • ${item.cipherType.badgeLabel}'
+                            : '•••••••••••• • ${item.cipherType.badgeLabel}',
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -427,8 +555,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
             children: [
               Row(
                 children: [
-                  const Icon(
-                    Icons.lock_clock_rounded,
+                  Icon(
+                    _categoryIcon(secret.category),
                     color: AppTheme.emeraldSecure,
                     size: 18,
                   ),
@@ -462,11 +590,287 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          _buildSecretRow(context, strings.secretText, secret.secretText),
+          const SizedBox(height: 12),
+          _buildRevealedContent(context, secret),
         ],
       ),
     );
+  }
+
+  Widget _buildRevealedContent(
+    BuildContext context,
+    DecodedTopicSecret secret,
+  ) {
+    final strings = AppLanguageScope.stringsOf(context);
+
+    if (secret.category == VaultItemCategory.image &&
+        secret.rawBytes != null &&
+        secret.rawBytes!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 260),
+              color: Colors.black38,
+              alignment: Alignment.center,
+              child: Image.memory(
+                secret.rawBytes!,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${secret.fileName ?? "image.png"} (${_formatBytes(secret.fileSizeBytes ?? secret.rawBytes!.length)})',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () {
+                  PlatformFileHelper.downloadFile(
+                    fileName: secret.fileName ?? '${secret.topic}.png',
+                    bytes: secret.rawBytes!,
+                    mimeType: secret.mimeType ?? 'image/png',
+                  );
+                },
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: Text(strings.downloadDecryptedImage),
+              ),
+            ],
+          ),
+          if (secret.secretText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSecretRow(
+              context,
+              strings.optionalSecretNote,
+              secret.secretText,
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (secret.category == VaultItemCategory.audio &&
+        secret.rawBytes != null &&
+        secret.rawBytes!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.audiotrack_rounded,
+                  color: AppTheme.emeraldSecure,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        secret.fileName ?? '${secret.topic}.mp3',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        _formatBytes(
+                          secret.fileSizeBytes ?? secret.rawBytes!.length,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white60,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    PlatformFileHelper.downloadFile(
+                      fileName: secret.fileName ?? '${secret.topic}.mp3',
+                      bytes: secret.rawBytes!,
+                      mimeType: secret.mimeType ?? 'audio/mpeg',
+                    );
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: Text(strings.downloadDecryptedAudio),
+                ),
+              ],
+            ),
+          ),
+          if (secret.secretText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSecretRow(
+              context,
+              strings.optionalSecretNote,
+              secret.secretText,
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (secret.category == VaultItemCategory.video &&
+        secret.rawBytes != null &&
+        secret.rawBytes!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.videocam_rounded,
+                  color: AppTheme.emeraldSecure,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        secret.fileName ?? '${secret.topic}.mp4',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        _formatBytes(
+                          secret.fileSizeBytes ?? secret.rawBytes!.length,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white60,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    PlatformFileHelper.downloadFile(
+                      fileName: secret.fileName ?? '${secret.topic}.mp4',
+                      bytes: secret.rawBytes!,
+                      mimeType: secret.mimeType ?? 'video/mp4',
+                    );
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: Text(strings.downloadDecryptedVideo),
+                ),
+              ],
+            ),
+          ),
+          if (secret.secretText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSecretRow(
+              context,
+              strings.optionalSecretNote,
+              secret.secretText,
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (secret.category == VaultItemCategory.file &&
+        secret.rawBytes != null &&
+        secret.rawBytes!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.insert_drive_file_rounded,
+                  color: AppTheme.emeraldSecure,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        secret.fileName ?? '${secret.topic}.bin',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        _formatBytes(
+                          secret.fileSizeBytes ?? secret.rawBytes!.length,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white60,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    PlatformFileHelper.downloadFile(
+                      fileName: secret.fileName ?? '${secret.topic}.bin',
+                      bytes: secret.rawBytes!,
+                      mimeType: secret.mimeType ?? 'application/octet-stream',
+                    );
+                  },
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: Text(strings.downloadDecryptedFile),
+                ),
+              ],
+            ),
+          ),
+          if (secret.secretText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSecretRow(
+              context,
+              strings.optionalSecretNote,
+              secret.secretText,
+            ),
+          ],
+        ],
+      );
+    }
+
+    return _buildSecretRow(context, strings.secretText, secret.secretText);
   }
 
   Widget _buildSecretRow(BuildContext context, String label, String value) {
@@ -582,13 +986,18 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
     }
   }
 
-  Future<void> _showNewTopicDialog(BuildContext context) async {
+  Future<void> _showNewTopicDialog(
+    BuildContext context, {
+    VaultItemCategory initialCategory = VaultItemCategory.text,
+  }) async {
     final strings = AppLanguageScope.stringsOf(context);
     final topicCtrl = TextEditingController();
     final secretCtrl = TextEditingController();
     final hintCtrl = TextEditingController();
     final itemPasswordCtrl = TextEditingController();
     final confirmPasswordCtrl = TextEditingController();
+    var selectedCategory = initialCategory;
+    PickedFileData? pickedFile;
     var selectedCipher = VaultCipherType.aes256Gcm;
     var hasExtraLock = false;
     var passwordEntropyBits = 0.0;
@@ -610,6 +1019,35 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    DropdownButtonFormField<VaultItemCategory>(
+                      initialValue: selectedCategory,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: strings.categoryLabel,
+                        isDense: true,
+                      ),
+                      items: VaultItemCategory.values.map((cat) {
+                        return DropdownMenuItem<VaultItemCategory>(
+                          value: cat,
+                          child: Row(
+                            children: [
+                              Icon(_categoryIcon(cat), size: 18),
+                              const SizedBox(width: 8),
+                              Text(_categoryName(cat, strings)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedCategory = val;
+                            errorMsg = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: topicCtrl,
                       enableIMEPersonalizedLearning: false,
@@ -620,16 +1058,79 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    TextField(
-                      controller: secretCtrl,
-                      maxLines: 3,
-                      enableIMEPersonalizedLearning: false,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: InputDecoration(
-                        labelText: strings.secretTextFieldLabel,
+                    if (selectedCategory == VaultItemCategory.text)
+                      TextField(
+                        controller: secretCtrl,
+                        maxLines: 3,
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: InputDecoration(
+                          labelText: strings.secretTextFieldLabel,
+                        ),
+                      )
+                    else ...[
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final String? mimeFilter;
+                          switch (selectedCategory) {
+                            case VaultItemCategory.image:
+                              mimeFilter = 'image/*';
+                              break;
+                            case VaultItemCategory.audio:
+                              mimeFilter = 'audio/*';
+                              break;
+                            case VaultItemCategory.video:
+                              mimeFilter = 'video/*';
+                              break;
+                            default:
+                              mimeFilter = null;
+                          }
+                          final file = await PlatformFileHelper.pickAnyFile(
+                            mimeTypeFilter: mimeFilter,
+                          );
+                          if (file != null) {
+                            setDialogState(() {
+                              pickedFile = file;
+                              if (topicCtrl.text.trim().isEmpty) {
+                                final dotIndex = file.name.lastIndexOf('.');
+                                topicCtrl.text = dotIndex > 0
+                                    ? file.name.substring(0, dotIndex)
+                                    : file.name;
+                              }
+                              errorMsg = null;
+                            });
+                          }
+                        },
+                        icon: Icon(
+                          pickedFile == null
+                              ? Icons.upload_file_rounded
+                              : Icons.check_circle_rounded,
+                          color: pickedFile == null
+                              ? null
+                              : AppTheme.emeraldSecure,
+                        ),
+                        label: Text(
+                          pickedFile == null
+                              ? _pickFileButtonLabel(selectedCategory, strings)
+                              : strings.fileSelectedInfo(
+                                  pickedFile!.name,
+                                  _formatBytes(pickedFile!.size),
+                                ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: secretCtrl,
+                        maxLines: 2,
+                        enableIMEPersonalizedLearning: false,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        decoration: InputDecoration(
+                          labelText: strings.optionalSecretNote,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     DropdownButtonFormField<VaultCipherType>(
                       initialValue: selectedCipher,
@@ -745,10 +1246,26 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                   onPressed: isEncoding
                       ? null
                       : () async {
-                          if (topicCtrl.text.trim().isEmpty ||
+                          if (topicCtrl.text.trim().isEmpty) {
+                            setDialogState(() {
+                              errorMsg = 'Topic is required.';
+                            });
+                            return;
+                          }
+                          if (selectedCategory == VaultItemCategory.text &&
                               secretCtrl.text.trim().isEmpty) {
                             setDialogState(() {
                               errorMsg = 'Topic and Secret Text are required.';
+                            });
+                            return;
+                          }
+                          if (selectedCategory != VaultItemCategory.text &&
+                              pickedFile == null) {
+                            setDialogState(() {
+                              errorMsg = _pickFileButtonLabel(
+                                selectedCategory,
+                                strings,
+                              );
                             });
                             return;
                           }
@@ -797,12 +1314,22 @@ class _VaultDashboardViewState extends State<VaultDashboardView> {
                                   hasExtraLock ? itemPasswordCtrl.text : null,
                               passwordHint: hintCtrl.text,
                               cipherType: selectedCipher,
+                              category: selectedCategory,
+                              fileName: pickedFile?.name,
+                              fileSizeBytes: pickedFile?.size,
+                              mimeType: pickedFile?.mimeType,
+                              rawBytes: pickedFile?.bytes,
                             );
                             tracker?.complete();
                             await Future<void>.delayed(
                               const Duration(milliseconds: 150),
                             );
                             if (ctx.mounted) Navigator.of(ctx).pop();
+                            if (mounted &&
+                                _tabController.index !=
+                                    selectedCategory.index) {
+                              _tabController.animateTo(selectedCategory.index);
+                            }
                           } catch (e) {
                             tracker?.dispose();
                             setDialogState(() {

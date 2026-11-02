@@ -403,6 +403,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         item.fileName != null
                             ? '${item.fileName} (${_formatBytes(item.fileSizeBytes ?? 0)}) • ${item.cipherType.badgeLabel}'
                             : '•••••••••••• • ${item.cipherType.badgeLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -553,23 +555,29 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    _categoryIcon(secret.category),
-                    color: AppTheme.emeraldSecure,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${secret.topic} • ${strings.autoHide(secsLeft.toString())}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      _categoryIcon(secret.category),
                       color: AppTheme.emeraldSecure,
+                      size: 18,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${secret.topic} • ${strings.autoHide(secsLeft.toString())}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.emeraldSecure,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -628,6 +636,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
               Expanded(
                 child: Text(
                   '${secret.fileName ?? "image.png"} (${_formatBytes(secret.fileSizeBytes ?? secret.rawBytes!.length)})',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,
                     fontFamily: 'monospace',
@@ -635,6 +645,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: () {
                   PlatformFileHelper.downloadFile(
@@ -687,6 +698,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     children: [
                       Text(
                         secret.fileName ?? '${secret.topic}.mp3',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -704,6 +717,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: () {
                     PlatformFileHelper.downloadFile(
@@ -757,6 +771,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     children: [
                       Text(
                         secret.fileName ?? '${secret.topic}.mp4',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -774,6 +790,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: () {
                     PlatformFileHelper.downloadFile(
@@ -827,6 +844,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     children: [
                       Text(
                         secret.fileName ?? '${secret.topic}.bin',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -844,6 +863,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 FilledButton.icon(
                   onPressed: () {
                     PlatformFileHelper.downloadFile(
@@ -1117,6 +1137,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                                   pickedFile!.name,
                                   _formatBytes(pickedFile!.size),
                                 ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(height: 10),

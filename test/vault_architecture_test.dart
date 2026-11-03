@@ -21,7 +21,7 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
       SharedPreferences.setMockInitialValues({});
       repository = VaultRepository(
-        rustFfiService: RustVaultFfiService(),
+        rustFfiService: RustVaultFfiService(includeDemoData: true),
         osHardeningService: OsHardeningService(),
       );
     });

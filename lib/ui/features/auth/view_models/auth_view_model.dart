@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../data/repositories/vault_repository.dart';
 import '../../../../domain/models/vault_models.dart';
 
@@ -7,6 +8,7 @@ class AuthViewModel extends ChangeNotifier {
       : _vaultRepository = vaultRepository;
 
   final VaultRepository _vaultRepository;
+  static const _prefDisclaimerAck = 'superxsecret_pref_disclaimer_ack';
 
   DeviceSecurityPosture _securityPosture = const DeviceSecurityPosture(
     zeroNetworkPermissionVerified: true,
@@ -27,12 +29,34 @@ class AuthViewModel extends ChangeNotifier {
   double _currentEntropyBits = 0;
   double get currentEntropyBits => _currentEntropyBits;
 
+  bool _hasAcknowledgedDisclaimer = false;
+  bool get hasAcknowledgedDisclaimer => _hasAcknowledgedDisclaimer;
+
   bool get isVaultInitialized => _vaultRepository.isVaultInitialized;
   VaultSessionMode? get activeSessionMode => _vaultRepository.activeSessionMode;
 
   Future<void> initializeSecurityCheck() async {
     _securityPosture = await _vaultRepository.checkDeviceSecurityPosture();
+    await checkDisclaimerAcknowledged();
     notifyListeners();
+  }
+
+  Future<void> checkDisclaimerAcknowledged() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _hasAcknowledgedDisclaimer =
+          prefs.getBool(_prefDisclaimerAck) ?? false;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> acknowledgeDisclaimer() async {
+    _hasAcknowledgedDisclaimer = true;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefDisclaimerAck, true);
+    } catch (_) {}
   }
 
   void updatePasswordInputForEntropy(String candidate) {

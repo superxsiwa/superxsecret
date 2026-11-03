@@ -60,6 +60,10 @@ class VaultRepository {
     return _rustFfiService.listSummaries();
   }
 
+  Future<void> loadSampleDemoData() {
+    return _rustFfiService.populateSampleDemoData();
+  }
+
   Future<DecodedTopicSecret> revealSecretPayloadJit(
     String itemUuid, {
     String? overridePassword,

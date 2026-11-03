@@ -208,6 +208,11 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                 onPressed: () => _showScrambledKeypadDemoSheet(context),
               ),
               IconButton(
+                tooltip: strings.loadDemoDataBtn,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                onPressed: () => _confirmLoadDemoData(context, strings),
+              ),
+              IconButton(
                 tooltip: strings.lockVault,
                 icon: const Icon(
                   Icons.lock_outline_rounded,
@@ -268,32 +273,34 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
               ),
               Expanded(
                 child: categoryItems.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _categoryIcon(_selectedCategory),
-                                size: 48,
-                                color: AppTheme.textMutedOf(context)
-                                    .withValues(alpha: 0.4),
+                    ? (items.isEmpty
+                        ? _buildEmptyVaultState(context, strings)
+                        : Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _categoryIcon(_selectedCategory),
+                                    size: 48,
+                                    color: AppTheme.textMutedOf(context)
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    strings.noItemsInCategory(
+                                      _categoryName(_selectedCategory, strings),
+                                    ),
+                                    style: TextStyle(
+                                      color: AppTheme.textMutedOf(context),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                strings.noItemsInCategory(
-                                  _categoryName(_selectedCategory, strings),
-                                ),
-                                style: TextStyle(
-                                  color: AppTheme.textMutedOf(context),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
+                            ),
+                          ))
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
                         itemCount: categoryItems.length,
@@ -308,6 +315,119 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyVaultState(BuildContext context, AppStrings strings) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.emeraldSecure.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: AppTheme.emeraldSecure.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.shield_outlined,
+                size: 36,
+                color: AppTheme.emeraldSecure,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              strings.emptyVaultTitle,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimaryOf(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              strings.emptyVaultSubtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textSecondaryOf(context),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.cyberCyan,
+                side: BorderSide(
+                  color: AppTheme.cyberCyan.withValues(alpha: 0.4),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => _confirmLoadDemoData(context, strings),
+              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: Text(
+                strings.loadDemoDataBtn,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmLoadDemoData(BuildContext context, AppStrings strings) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: AppTheme.cyberCyan),
+            const SizedBox(width: 8),
+            Flexible(child: Text(strings.loadDemoDataConfirmTitle)),
+          ],
+        ),
+        content: Text(strings.loadDemoDataConfirmContent),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.cyberCyan,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () async {
+              await widget.viewModel.loadSampleDemoData();
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(strings.demoDataLoadedSnackbar),
+                    backgroundColor: AppTheme.emeraldSecure,
+                  ),
+                );
+              }
+            },
+            child: Text(strings.loadDemoDataBtn),
+          ),
+        ],
+      ),
     );
   }
 

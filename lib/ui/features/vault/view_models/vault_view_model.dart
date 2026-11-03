@@ -45,6 +45,11 @@ class VaultViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadSampleDemoData() async {
+    await _vaultRepository.loadSampleDemoData();
+    await loadVaultSummaries();
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();

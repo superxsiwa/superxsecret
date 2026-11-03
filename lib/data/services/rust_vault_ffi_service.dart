@@ -12,10 +12,17 @@ import 'vault_storage_service.dart';
 /// Unified Topic + Secret Text records, Just-In-Time (JIT) decryption,
 /// `.sxsi` ("SXSI") single-item encrypted sharing, and `.sxs` ("SXSV") full backups.
 class RustVaultFfiService {
-  RustVaultFfiService({VaultStorageService? storageService})
-      : _storageService = storageService ?? VaultStorageService();
+  RustVaultFfiService({
+    VaultStorageService? storageService,
+    this.includeDemoData = false,
+  }) : _storageService = storageService ?? VaultStorageService() {
+    if (includeDemoData) {
+      _initDemoData();
+    }
+  }
 
   final VaultStorageService _storageService;
+  final bool includeDemoData;
   bool _hasLoadedFromStorage = false;
 
   VaultSessionMode? _activeSessionMode;
@@ -32,50 +39,82 @@ class RustVaultFfiService {
   VaultSessionMode? get activeSessionMode => _activeSessionMode;
 
   // Main Vault storage (SQLCipher Slot A)
-  final List<VaultTopicSummary> _mainSummaries = [
-    VaultTopicSummary(
-      itemUuid: 'topic-main-01',
-      topic: 'ProtonMail',
-      updatedAt: DateTime(2026, 10, 26, 7, 15),
-    ),
-    VaultTopicSummary(
-      itemUuid: 'topic-main-02',
-      topic: 'KBank Card',
-      updatedAt: DateTime(2026, 10, 25, 19, 30),
-    ),
-    VaultTopicSummary(
-      itemUuid: 'topic-main-03',
-      topic: 'Crypto Seed',
-      updatedAt: DateTime(2026, 10, 20, 14, 0),
-    ),
-  ];
-
-  final Map<String, String> _legacyMainSecretTexts = {
-    'topic-main-01': 'User: user@proton.me\nPass: V9#mK!29xPq_88',
-    'topic-main-02':
-        'Card: 4532 8910 7721 8842\nEXP: 09/29 | CVV: 947 | PIN: 582914',
-    'topic-main-03':
-        'abandon ability able about above absent absorb abstract absurd abuse access accident',
-  };
+  final List<VaultTopicSummary> _mainSummaries = [];
+  final Map<String, String> _legacyMainSecretTexts = {};
 
   // Secondary Vault storage (SQLCipher Slot B)
-  final List<VaultTopicSummary> _secondarySummaries = [
-    VaultTopicSummary(
-      itemUuid: 'topic-sec-01',
-      topic: 'Netflix',
-      updatedAt: DateTime(2026, 9, 12, 10, 20),
-    ),
-    VaultTopicSummary(
-      itemUuid: 'topic-sec-02',
-      topic: 'Home Wi-Fi',
-      updatedAt: DateTime(2026, 8, 4, 21, 0),
-    ),
-  ];
+  final List<VaultTopicSummary> _secondarySummaries = [];
+  final Map<String, String> _legacySecondarySecretTexts = {};
 
-  final Map<String, String> _legacySecondarySecretTexts = {
-    'topic-sec-01': 'User: family@gmail.com\nPass: Movie2026!',
-    'topic-sec-02': 'SSID: Home_5G\nPass: GuestPass1234',
-  };
+  void _initDemoData() {
+    final demoMain = [
+      VaultTopicSummary(
+        itemUuid: 'topic-main-01',
+        topic: 'ProtonMail',
+        updatedAt: DateTime(2026, 10, 26, 7, 15),
+      ),
+      VaultTopicSummary(
+        itemUuid: 'topic-main-02',
+        topic: 'KBank Card',
+        updatedAt: DateTime(2026, 10, 25, 19, 30),
+      ),
+      VaultTopicSummary(
+        itemUuid: 'topic-main-03',
+        topic: 'Crypto Seed',
+        updatedAt: DateTime(2026, 10, 20, 14, 0),
+      ),
+    ];
+    for (final s in demoMain) {
+      if (!_mainSummaries.any((e) => e.itemUuid == s.itemUuid)) {
+        _mainSummaries.add(s);
+      }
+    }
+    _legacyMainSecretTexts.putIfAbsent(
+        'topic-main-01', () => 'User: user@proton.me\nPass: V9#mK!29xPq_88');
+    _legacyMainSecretTexts.putIfAbsent(
+        'topic-main-02',
+        () =>
+            'Card: 4532 8910 7721 8842\nEXP: 09/29 | CVV: 947 | PIN: 582914');
+    _legacyMainSecretTexts.putIfAbsent(
+        'topic-main-03',
+        () =>
+            'abandon ability able about above absent absorb abstract absurd abuse access accident');
+
+    final demoSec = [
+      VaultTopicSummary(
+        itemUuid: 'topic-sec-01',
+        topic: 'Netflix',
+        updatedAt: DateTime(2026, 9, 12, 10, 20),
+      ),
+      VaultTopicSummary(
+        itemUuid: 'topic-sec-02',
+        topic: 'Home Wi-Fi',
+        updatedAt: DateTime(2026, 8, 4, 21, 0),
+      ),
+    ];
+    for (final s in demoSec) {
+      if (!_secondarySummaries.any((e) => e.itemUuid == s.itemUuid)) {
+        _secondarySummaries.add(s);
+      }
+    }
+    _legacySecondarySecretTexts.putIfAbsent(
+        'topic-sec-01', () => 'User: family@gmail.com\nPass: Movie2026!');
+    _legacySecondarySecretTexts.putIfAbsent(
+        'topic-sec-02', () => 'SSID: Home_5G\nPass: GuestPass1234');
+  }
+
+  /// Populates and encrypts sample demo items on demand for testing/demoing.
+  Future<void> populateSampleDemoData() async {
+    _initDemoData();
+    if (_activeSessionPassword.isNotEmpty) {
+      await _encryptLegacyItems(
+        _activeSessionMode ?? VaultSessionMode.mainVault,
+        _activeSessionPassword,
+        _activePasswordHint,
+      );
+    }
+    await _saveVault();
+  }
 
   final Map<String, _EncryptedSecret> _mainEncryptedSecrets = {};
   final Map<String, _EncryptedSecret> _secondaryEncryptedSecrets = {};

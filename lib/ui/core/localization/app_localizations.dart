@@ -217,6 +217,25 @@ class AppStrings {
     required this.noItemsInCategory,
     required this.categoryLabel,
     required this.optionalSecretNote,
+    required this.firstRunDisclaimerTitle,
+    required this.firstRunDisclaimerSubtitle,
+    required this.disclaimerZeroCloudTitle,
+    required this.disclaimerZeroCloudDesc,
+    required this.disclaimerNoRecoveryTitle,
+    required this.disclaimerNoRecoveryDesc,
+    required this.disclaimerBackupRequiredTitle,
+    required this.disclaimerBackupRequiredDesc,
+    required this.disclaimerDualSlotTitle,
+    required this.disclaimerDualSlotDesc,
+    required this.disclaimerCheckboxLabel,
+    required this.disclaimerProceedBtn,
+    required this.disclaimerViewNotice,
+    required this.emptyVaultTitle,
+    required this.emptyVaultSubtitle,
+    required this.loadDemoDataBtn,
+    required this.loadDemoDataConfirmTitle,
+    required this.loadDemoDataConfirmContent,
+    required this.demoDataLoadedSnackbar,
   });
 
   final String appName;
@@ -355,6 +374,27 @@ class AppStrings {
   final String categoryLabel;
   final String optionalSecretNote;
 
+  // Zero-Knowledge First-Run Onboarding & Clean Vault
+  final String firstRunDisclaimerTitle;
+  final String firstRunDisclaimerSubtitle;
+  final String disclaimerZeroCloudTitle;
+  final String disclaimerZeroCloudDesc;
+  final String disclaimerNoRecoveryTitle;
+  final String disclaimerNoRecoveryDesc;
+  final String disclaimerBackupRequiredTitle;
+  final String disclaimerBackupRequiredDesc;
+  final String disclaimerDualSlotTitle;
+  final String disclaimerDualSlotDesc;
+  final String disclaimerCheckboxLabel;
+  final String disclaimerProceedBtn;
+  final String disclaimerViewNotice;
+  final String emptyVaultTitle;
+  final String emptyVaultSubtitle;
+  final String loadDemoDataBtn;
+  final String loadDemoDataConfirmTitle;
+  final String loadDemoDataConfirmContent;
+  final String demoDataLoadedSnackbar;
+
   static final AppStrings english = AppStrings(
     appName: 'SuperXSecret',
     language: 'Language',
@@ -492,6 +532,33 @@ class AppStrings {
     noItemsInCategory: (category) => 'No $category found',
     categoryLabel: 'Category',
     optionalSecretNote: 'Optional note or description',
+    firstRunDisclaimerTitle: 'Zero-Knowledge Security Notice',
+    firstRunDisclaimerSubtitle:
+        '100% Offline, Zero Servers & No Cloud Recovery',
+    disclaimerZeroCloudTitle: '100% Offline & Zero Network',
+    disclaimerZeroCloudDesc:
+        'Your secrets never leave this device. Zero servers, zero analytics, zero network permissions.',
+    disclaimerNoRecoveryTitle: 'Zero Password Recovery',
+    disclaimerNoRecoveryDesc:
+        'If you forget your password, all vault data is lost forever. There is no reset button or support recovery.',
+    disclaimerBackupRequiredTitle: 'Regular Offline Backups',
+    disclaimerBackupRequiredDesc:
+        'Export your encrypted .sxs backup to a secure USB drive or cold storage to protect against device loss.',
+    disclaimerDualSlotTitle: 'Dual-Vault Plausible Deniability',
+    disclaimerDualSlotDesc:
+        'Set a Master Password for real data and a Secondary PIN to reveal a decoy vault if coerced.',
+    disclaimerCheckboxLabel:
+        'I understand this is a zero-knowledge offline vault and lost passwords cannot be recovered under any circumstance.',
+    disclaimerProceedBtn: 'I Understand & Proceed',
+    disclaimerViewNotice: 'Security Notice',
+    emptyVaultTitle: 'Your Vault is Empty',
+    emptyVaultSubtitle:
+        'Tap "New" above to add your first password, secret note, or encrypted file.',
+    loadDemoDataBtn: 'Load Demo Data',
+    loadDemoDataConfirmTitle: 'Load Sample Demo Data?',
+    loadDemoDataConfirmContent:
+        'This will populate sample mock items (e.g. sample card, demo secret) so you can test all features safely.',
+    demoDataLoadedSnackbar: 'Sample demo data loaded successfully',
   );
 
   static final AppStrings thai = AppStrings(
@@ -631,6 +698,33 @@ class AppStrings {
     noItemsInCategory: (category) => 'ยังไม่มีข้อมูลในหมวดหมู่ $category',
     categoryLabel: 'หมวดหมู่',
     optionalSecretNote: 'บันทึกหรือข้อความประกอบ (ไม่บังคับ)',
+    firstRunDisclaimerTitle: 'ข้อกำหนดความปลอดภัย Zero-Knowledge',
+    firstRunDisclaimerSubtitle:
+        'ออฟไลน์ 100% ไร้เซิร์ฟเวอร์ และไม่มีการกู้คืนบนคลาวด์',
+    disclaimerZeroCloudTitle: 'ออฟไลน์ 100% ปราศจากอินเทอร์เน็ต',
+    disclaimerZeroCloudDesc:
+        'ข้อมูลของคุณไม่เคยออกจากเครื่องนี้ ไม่มีเซิร์ฟเวอร์ ไม่มีการส่งข้อมูล หรือเก็บสถิติใดๆ ทั้งสิ้น',
+    disclaimerNoRecoveryTitle: 'ไม่สามารถกู้คืนรหัสผ่านได้ทุกกรณี',
+    disclaimerNoRecoveryDesc:
+        'หากคุณลืมรหัสผ่าน ข้อมูลทั้งหมดจะสูญหายถาวร ไม่มีทีมงานหรือระบบใดสามารถรีเซ็ตรหัสผ่านให้คุณได้',
+    disclaimerBackupRequiredTitle: 'หมั่นสำรองข้อมูลแบบออฟไลน์',
+    disclaimerBackupRequiredDesc:
+        'ส่งออกไฟล์สำรอง .sxs ที่เข้ารหัสไว้ไปยังแฟลชไดรฟ์หรือ Cold Storage เพื่อความปลอดภัยหากอุปกรณ์สูญหาย',
+    disclaimerDualSlotTitle: 'ระบบคลังคู่ ป้องกันการถูกบีบบังคับ',
+    disclaimerDualSlotDesc:
+        'คุณสามารถตั้งรหัสหลักสำหรับข้อมูลจริง และรหัสสำรองสำหรับเปิดคลังลวงเมื่อตกอยู่ในสถานการณ์ถูกคุกคาม',
+    disclaimerCheckboxLabel:
+        'ข้าพเจ้าเข้าใจและยอมรับว่านี่คือระบบ Zero-Knowledge หากลืมรหัสผ่านจะไม่สามารถกู้คืนข้อมูลได้ในทุกกรณี',
+    disclaimerProceedBtn: 'ข้าพเจ้าเข้าใจและพร้อมตั้งค่า',
+    disclaimerViewNotice: 'ข้อกำหนดความปลอดภัย',
+    emptyVaultTitle: 'คลังนิรภัยยังว่างอยู่',
+    emptyVaultSubtitle:
+        'กดปุ่ม "เพิ่มใหม่" ด้านบนเพื่อเริ่มบันทึกรหัสผ่านหรือความลับแรกของคุณ',
+    loadDemoDataBtn: 'โหลดข้อมูลตัวอย่าง',
+    loadDemoDataConfirmTitle: 'ต้องการโหลดข้อมูลตัวอย่างหรือไม่?',
+    loadDemoDataConfirmContent:
+        'ระบบจะเพิ่มรายการตัวอย่าง (เช่น บัตรทดลอง, รหัสผ่านตัวอย่าง) ลงในคลัง เพื่อให้คุณทดลองใช้งานฟังก์ชันต่างๆ ได้อย่างครบถ้วน',
+    demoDataLoadedSnackbar: 'โหลดข้อมูลตัวอย่างสำเร็จ',
   );
 }
 

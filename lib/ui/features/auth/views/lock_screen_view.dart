@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../view_models/auth_view_model.dart';
+import '../widgets/zero_knowledge_disclaimer_sheet.dart';
 
 class LockScreenView extends StatefulWidget {
   const LockScreenView({
@@ -23,11 +24,18 @@ class _LockScreenViewState extends State<LockScreenView> {
   final TextEditingController _passwordHintController = TextEditingController();
   bool _obscurePassword = true;
   bool _isConfiguringDualSlot = false;
+  bool _disclaimerCheckboxChecked = false;
 
   @override
   void initState() {
     super.initState();
-    widget.viewModel.initializeSecurityCheck();
+    _isConfiguringDualSlot = !widget.viewModel.isVaultInitialized;
+    _disclaimerCheckboxChecked = widget.viewModel.hasAcknowledgedDisclaimer;
+    widget.viewModel.initializeSecurityCheck().then((_) {
+      if (mounted && widget.viewModel.hasAcknowledgedDisclaimer) {
+        setState(() => _disclaimerCheckboxChecked = true);
+      }
+    });
   }
 
   @override
@@ -49,12 +57,25 @@ class _LockScreenViewState extends State<LockScreenView> {
   }
 
   Future<void> _submitDualSlotSetup() async {
+    final strings = AppLanguageScope.stringsOf(context);
+    if (!_disclaimerCheckboxChecked &&
+        !widget.viewModel.hasAcknowledgedDisclaimer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(strings.disclaimerCheckboxLabel),
+          backgroundColor: AppTheme.crimsonAlert,
+        ),
+      );
+      return;
+    }
+
     final success = await widget.viewModel.setupDualSlotVault(
       mainPassword: _passwordController.text,
       secondaryPassword: _duressController.text,
       passwordHint: _passwordHintController.text,
     );
     if (success && mounted) {
+      await widget.viewModel.acknowledgeDisclaimer();
       _passwordController.clear();
       _duressController.clear();
       _passwordHintController.clear();
@@ -216,33 +237,62 @@ class _LockScreenViewState extends State<LockScreenView> {
                                       ],
                                     ),
                                   ),
-                                  TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppTheme.cyberCyan,
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isConfiguringDualSlot =
-                                            !_isConfiguringDualSlot;
-                                      });
-                                    },
-                                    icon: Icon(
-                                      _isConfiguringDualSlot
-                                          ? Icons.login_rounded
-                                          : Icons.layers_rounded,
-                                      size: 15,
-                                    ),
-                                    label: Text(
-                                      _isConfiguringDualSlot
-                                          ? strings.unlock
-                                          : strings.setupDualSlot,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                  if (!widget.viewModel.isVaultInitialized)
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.emeraldSecure,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () =>
+                                          ZeroKnowledgeDisclaimerSheet.show(
+                                        context,
+                                        onAcknowledged: () {
+                                          setState(() =>
+                                              _disclaimerCheckboxChecked = true);
+                                          widget.viewModel
+                                              .acknowledgeDisclaimer();
+                                        },
+                                      ),
+                                      icon: const Icon(
+                                        Icons.shield_outlined,
+                                        size: 15,
+                                      ),
+                                      label: Text(
+                                        strings.disclaimerViewNotice,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.cyberCyan,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isConfiguringDualSlot =
+                                              !_isConfiguringDualSlot;
+                                        });
+                                      },
+                                      icon: Icon(
+                                        _isConfiguringDualSlot
+                                            ? Icons.login_rounded
+                                            : Icons.layers_rounded,
+                                        size: 15,
+                                      ),
+                                      label: Text(
+                                        _isConfiguringDualSlot
+                                            ? strings.unlock
+                                            : strings.setupDualSlot,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
-                                  ),
                                 ],
                               ),
                               const SizedBox(height: 14),
@@ -306,7 +356,50 @@ class _LockScreenViewState extends State<LockScreenView> {
                                         const Icon(Icons.lightbulb_outline),
                                   ),
                                 ),
-                              ],
+                                const SizedBox(height: 14),
+                                Material(
+                                  color: AppTheme.isDarkMode(context)
+                                      ? const Color(0xFF111722)
+                                      : const Color(0xFFF1F5F9),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: _disclaimerCheckboxChecked
+                                          ? AppTheme.emeraldSecure
+                                              .withValues(alpha: 0.5)
+                                          : AppTheme.borderHighlightOf(context),
+                                    ),
+                                  ),
+                                  child: CheckboxListTile(
+                                      value: _disclaimerCheckboxChecked,
+                                      onChanged: (val) {
+                                        setState(() =>
+                                            _disclaimerCheckboxChecked =
+                                                val ?? false);
+                                        if (val == true) {
+                                          widget.viewModel
+                                              .acknowledgeDisclaimer();
+                                        }
+                                      },
+                                      activeColor: AppTheme.emeraldSecure,
+                                      checkColor: Colors.black,
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                      title: Text(
+                                        strings.disclaimerCheckboxLabel,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryOf(context),
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               if (widget.viewModel.errorMessage != null) ...[
                                 const SizedBox(height: 14),
                                 Container(

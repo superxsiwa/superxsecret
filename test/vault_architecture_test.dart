@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:superxsecret/data/repositories/vault_repository.dart';
 import 'package:superxsecret/data/services/os_hardening_service.dart';
 import 'package:superxsecret/data/services/rust_vault_ffi_service.dart';
 import 'package:superxsecret/domain/models/vault_models.dart';
+import 'package:superxsecret/ui/core/localization/app_localizations.dart';
 import 'package:superxsecret/ui/features/vault/view_models/vault_view_model.dart';
 import 'package:superxsecret/ui/features/vault/views/vault_dashboard_view.dart';
 import 'package:superxsecret/ui/features/auth/view_models/auth_view_model.dart';
@@ -17,6 +19,7 @@ void main() {
 
     setUp(() {
       TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
       repository = VaultRepository(
         rustFfiService: RustVaultFfiService(),
         osHardeningService: OsHardeningService(),
@@ -401,10 +404,13 @@ void main() {
       final viewModel = VaultViewModel(vaultRepository: repository);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: VaultDashboardView(
-            viewModel: viewModel,
-            onLockRequested: () {},
+        AppLanguageScope(
+          controller: AppLanguageController()..setLanguage(AppLanguage.english),
+          child: MaterialApp(
+            home: VaultDashboardView(
+              viewModel: viewModel,
+              onLockRequested: () {},
+            ),
           ),
         ),
       );
@@ -424,13 +430,21 @@ void main() {
 
     testWidgets('New Topic offers the optional Extra Lock password fields',
         (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await repository.unlockVault('SuperSecret#2026');
       final viewModel = VaultViewModel(vaultRepository: repository);
       await tester.pumpWidget(
-        MaterialApp(
-          home: VaultDashboardView(
-            viewModel: viewModel,
-            onLockRequested: () {},
+        AppLanguageScope(
+          controller: AppLanguageController()..setLanguage(AppLanguage.english),
+          child: MaterialApp(
+            home: VaultDashboardView(
+              viewModel: viewModel,
+              onLockRequested: () {},
+            ),
           ),
         ),
       );

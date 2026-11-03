@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/vault_models.dart';
+import 'vault_storage_service.dart';
 
 /// Service bridging Flutter to the Rust Security Core (`superxsecret_core`).
 ///
@@ -11,6 +12,12 @@ import '../../domain/models/vault_models.dart';
 /// Unified Topic + Secret Text records, Just-In-Time (JIT) decryption,
 /// `.sxsi` ("SXSI") single-item encrypted sharing, and `.sxs` ("SXSV") full backups.
 class RustVaultFfiService {
+  RustVaultFfiService({VaultStorageService? storageService})
+      : _storageService = storageService ?? VaultStorageService();
+
+  final VaultStorageService _storageService;
+  bool _hasLoadedFromStorage = false;
+
   VaultSessionMode? _activeSessionMode;
 
   String _configuredMainPassword = '';
@@ -191,11 +198,16 @@ class RustVaultFfiService {
       secondaryPassword,
       _secondaryPasswordHint,
     );
+    await _saveVault();
   }
 
   /// Unlocks the Dual-Slot Vault via Argon2id + AES-256-GCM slot verification.
   /// Transparently activates `mainVault` or `secondaryVault` based on which slot matches.
   Future<VaultSessionMode> unlockVault(String candidatePassword) async {
+    if (!_hasLoadedFromStorage) {
+      await initFromStorage();
+      _hasLoadedFromStorage = true;
+    }
     if (!_isVaultInitialized) {
       if (candidatePassword == 'Decoy1234') {
         _activeSessionMode = VaultSessionMode.secondaryVault;
@@ -210,6 +222,7 @@ class RustVaultFfiService {
         _activeSessionMode = VaultSessionMode.mainVault;
         _activeSessionPassword = candidatePassword;
         _activePasswordHint = _mainPasswordHint;
+        await _saveVault();
         return VaultSessionMode.mainVault;
       }
       throw StateError('Wrong password');
@@ -438,6 +451,7 @@ class RustVaultFfiService {
       cipherType: summary.cipherType,
     );
     summaries[summaries.indexOf(summary)] = updatedSummary;
+    await _saveVault();
   }
 
   Future<void> setItemExtraLock({
@@ -492,6 +506,7 @@ class RustVaultFfiService {
       cipherType: summary.cipherType,
     );
     summaries[summaries.indexOf(summary)] = updatedSummary;
+    await _saveVault();
   }
 
   Future<void> removeItemExtraLock({
@@ -533,6 +548,7 @@ class RustVaultFfiService {
       passwordHint: _activePasswordHint,
       cipherType: summary.cipherType,
     );
+    await _saveVault();
   }
 
   /// Creates a new Topic item (text, image, audio, video, or general file) in the active vault partition.
@@ -600,6 +616,7 @@ class RustVaultFfiService {
     );
     _encryptedSecretsFor(mode)[uuid] = encryptedSecret;
     _summariesFor(mode).insert(0, summary);
+    await _saveVault();
     return summary;
   }
 
@@ -616,6 +633,7 @@ class RustVaultFfiService {
         ? _legacySecondarySecretTexts
         : _legacyMainSecretTexts;
     legacySecrets.remove(itemUuid);
+    await _saveVault();
   }
 
   List<VaultTopicSummary> _summariesFor(VaultSessionMode mode) {
@@ -1239,6 +1257,7 @@ class RustVaultFfiService {
     _encryptedSecretsFor(mode)
       ..clear()
       ..addAll(restoredSecrets);
+    await _saveVault();
   }
 
   Uint8List _encodeAuthenticatedContainer({
@@ -1356,6 +1375,168 @@ class RustVaultFfiService {
       }
       return (acc >> (lane % 8)) & 0xff;
     });
+  }
+
+  Map<String, dynamic> _serializeSummary(VaultTopicSummary summary) {
+    return {
+      'itemUuid': summary.itemUuid,
+      'topic': summary.topic,
+      'updatedAt': summary.updatedAt.toIso8601String(),
+      'hasExtraLock': summary.hasExtraLock,
+      'passwordHint': summary.passwordHint,
+      'cipherType': summary.cipherType.name,
+      'category': summary.category.name,
+      'fileName': summary.fileName,
+      'fileSizeBytes': summary.fileSizeBytes,
+    };
+  }
+
+  VaultTopicSummary _deserializeSummary(Map<String, dynamic> map) {
+    final cipherTypeName = map['cipherType'] as String?;
+    final cipherType = VaultCipherType.values.firstWhere(
+      (c) => c.name == cipherTypeName,
+      orElse: () => VaultCipherType.aes256Gcm,
+    );
+    final categoryName = map['category'] as String?;
+    final category = VaultItemCategory.values.firstWhere(
+      (c) => c.name == categoryName,
+      orElse: () => VaultItemCategory.text,
+    );
+    return VaultTopicSummary(
+      itemUuid: map['itemUuid'] as String,
+      topic: map['topic'] as String,
+      updatedAt:
+          DateTime.tryParse(map['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      hasExtraLock: map['hasExtraLock'] as bool? ?? false,
+      passwordHint: map['passwordHint'] as String? ?? '',
+      cipherType: cipherType,
+      category: category,
+      fileName: map['fileName'] as String?,
+      fileSizeBytes: map['fileSizeBytes'] as int?,
+    );
+  }
+
+  Map<String, dynamic> _serializeEncryptedSecret(_EncryptedSecret enc) {
+    return {
+      'salt': base64Url.encode(enc.salt),
+      'nonce': base64Url.encode(enc.nonce),
+      'cipherText': base64Url.encode(enc.cipherText),
+      'mac': base64Url.encode(enc.mac),
+      'hasExtraLock': enc.hasExtraLock,
+      'itemLockSalt': enc.itemLockSalt == null
+          ? null
+          : base64Url.encode(enc.itemLockSalt!),
+      'cipherType': enc.cipherType.name,
+    };
+  }
+
+  _EncryptedSecret _deserializeEncryptedSecret(Map<String, dynamic> map) {
+    final cipherTypeName = map['cipherType'] as String?;
+    final cipherType = VaultCipherType.values.firstWhere(
+      (c) => c.name == cipherTypeName,
+      orElse: () => VaultCipherType.aes256Gcm,
+    );
+    final itemLockSaltStr = map['itemLockSalt'] as String?;
+    return _EncryptedSecret(
+      salt: base64Url.decode(map['salt'] as String),
+      nonce: base64Url.decode(map['nonce'] as String),
+      cipherText: base64Url.decode(map['cipherText'] as String),
+      mac: base64Url.decode(map['mac'] as String),
+      hasExtraLock: map['hasExtraLock'] as bool? ?? false,
+      itemLockSalt: itemLockSaltStr != null
+          ? base64Url.decode(itemLockSaltStr)
+          : null,
+      cipherType: cipherType,
+    );
+  }
+
+  Future<void> _saveVault() async {
+    try {
+      final data = <String, dynamic>{
+        'isVaultInitialized': _isVaultInitialized,
+        'mainPassword': _configuredMainPassword,
+        'secondaryPassword': _configuredSecondaryPassword,
+        'mainPasswordHint': _mainPasswordHint,
+        'secondaryPasswordHint': _secondaryPasswordHint,
+        'mainItems': _mainSummaries.map((s) {
+          final enc = _mainEncryptedSecrets[s.itemUuid];
+          return {
+            ..._serializeSummary(s),
+            if (enc != null) 'encryptedSecret': _serializeEncryptedSecret(enc),
+          };
+        }).toList(),
+        'secondaryItems': _secondarySummaries.map((s) {
+          final enc = _secondaryEncryptedSecrets[s.itemUuid];
+          return {
+            ..._serializeSummary(s),
+            if (enc != null) 'encryptedSecret': _serializeEncryptedSecret(enc),
+          };
+        }).toList(),
+      };
+      await _storageService.saveVaultData(data);
+    } catch (_) {}
+  }
+
+  /// Initializes in-memory vault from encrypted persistent disk storage.
+  Future<void> initFromStorage() async {
+    _hasLoadedFromStorage = true;
+    final data = await _storageService.loadVaultData();
+    if (data == null) return;
+    try {
+      _isVaultInitialized = data['isVaultInitialized'] as bool? ?? false;
+      _configuredMainPassword = data['mainPassword'] as String? ?? '';
+      _configuredSecondaryPassword =
+          data['secondaryPassword'] as String? ?? '';
+      _mainPasswordHint = data['mainPasswordHint'] as String? ?? '';
+      _secondaryPasswordHint = data['secondaryPasswordHint'] as String? ?? '';
+
+      final mainItems = data['mainItems'] as List<dynamic>?;
+      if (mainItems != null && mainItems.isNotEmpty) {
+        _mainSummaries.clear();
+        _mainEncryptedSecrets.clear();
+        for (final item in mainItems) {
+          final map = item as Map<String, dynamic>;
+          final summary = _deserializeSummary(map);
+          _mainSummaries.add(summary);
+          final encMap = map['encryptedSecret'] as Map<String, dynamic>?;
+          if (encMap != null) {
+            _mainEncryptedSecrets[summary.itemUuid] =
+                _deserializeEncryptedSecret(encMap);
+          }
+        }
+      }
+
+      final secItems = data['secondaryItems'] as List<dynamic>?;
+      if (secItems != null && secItems.isNotEmpty) {
+        _secondarySummaries.clear();
+        _secondaryEncryptedSecrets.clear();
+        for (final item in secItems) {
+          final map = item as Map<String, dynamic>;
+          final summary = _deserializeSummary(map);
+          _secondarySummaries.add(summary);
+          final encMap = map['encryptedSecret'] as Map<String, dynamic>?;
+          if (encMap != null) {
+            _secondaryEncryptedSecrets[summary.itemUuid] =
+                _deserializeEncryptedSecret(encMap);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Securely zeroes in-memory structures and overwrites on-disk storage file.
+  Future<void> wipeAllVaultData() async {
+    lockAndZeroizeVault();
+    _isVaultInitialized = false;
+    _configuredMainPassword = '';
+    _configuredSecondaryPassword = '';
+    _mainPasswordHint = '';
+    _secondaryPasswordHint = '';
+    _mainSummaries.clear();
+    _mainEncryptedSecrets.clear();
+    _secondarySummaries.clear();
+    _secondaryEncryptedSecrets.clear();
+    await _storageService.wipeVaultData();
   }
 }
 

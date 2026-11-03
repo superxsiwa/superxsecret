@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppLanguage {
   english,
@@ -8,13 +9,34 @@ enum AppLanguage {
 
 class AppLanguageController extends ChangeNotifier {
   AppLanguage _currentLanguage = AppLanguage.system;
+  static const _prefKey = 'superxsecret_pref_language';
 
   AppLanguage get currentLanguage => _currentLanguage;
+
+  Future<void> loadSavedLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_prefKey);
+      if (saved != null) {
+        if (saved == 'thai') {
+          _currentLanguage = AppLanguage.thai;
+        } else if (saved == 'english') {
+          _currentLanguage = AppLanguage.english;
+        } else {
+          _currentLanguage = AppLanguage.system;
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
 
   void setLanguage(AppLanguage language) {
     if (_currentLanguage != language) {
       _currentLanguage = language;
       notifyListeners();
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString(_prefKey, language.name);
+      }).catchError((_) {});
     }
   }
 

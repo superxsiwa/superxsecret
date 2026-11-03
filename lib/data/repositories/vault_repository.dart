@@ -225,4 +225,8 @@ class VaultRepository {
       backupFilePassword: backupFilePassword,
     );
   }
+
+  Future<void> initFromStorage() => _rustFfiService.initFromStorage();
+
+  Future<void> wipeAllVaultData() => _rustFfiService.wipeAllVaultData();
 }

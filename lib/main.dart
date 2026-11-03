@@ -10,10 +10,12 @@ import 'ui/features/auth/views/lock_screen_view.dart';
 import 'ui/features/vault/view_models/vault_view_model.dart';
 import 'ui/features/vault/views/vault_dashboard_view.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final rustFfiService = RustVaultFfiService();
+  await rustFfiService.initFromStorage();
+
   final osHardeningService = OsHardeningService();
   final vaultRepository = VaultRepository(
     rustFfiService: rustFfiService,
@@ -47,6 +49,8 @@ class _SuperXSecretAppState extends State<SuperXSecretApp> {
     super.initState();
     _authViewModel = AuthViewModel(vaultRepository: widget.vaultRepository);
     _vaultViewModel = VaultViewModel(vaultRepository: widget.vaultRepository);
+    _languageController.loadSavedLanguage();
+    _themeController.loadSavedTheme();
 
     widget.vaultRepository.bindOsSecurityCallbacks(
       onScreenOffAutoLock: _handleImmediateAutoLock,

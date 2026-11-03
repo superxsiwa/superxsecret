@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../localization/app_localizations.dart';
 
 enum AppThemeMode {
@@ -9,8 +10,26 @@ enum AppThemeMode {
 
 class AppThemeController extends ChangeNotifier {
   AppThemeMode _currentThemeMode = AppThemeMode.system;
+  static const _prefKey = 'superxsecret_pref_theme';
 
   AppThemeMode get currentThemeMode => _currentThemeMode;
+
+  Future<void> loadSavedTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_prefKey);
+      if (saved != null) {
+        if (saved == 'light') {
+          _currentThemeMode = AppThemeMode.light;
+        } else if (saved == 'dark') {
+          _currentThemeMode = AppThemeMode.dark;
+        } else {
+          _currentThemeMode = AppThemeMode.system;
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
 
   ThemeMode get themeMode {
     switch (_currentThemeMode) {
@@ -44,6 +63,9 @@ class AppThemeController extends ChangeNotifier {
     if (_currentThemeMode != mode) {
       _currentThemeMode = mode;
       notifyListeners();
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString(_prefKey, mode.name);
+      }).catchError((_) {});
     }
   }
 }

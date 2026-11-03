@@ -120,110 +120,70 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
 
         return Scaffold(
           appBar: AppBar(
-            titleSpacing: 12,
+            toolbarHeight: 52,
+            titleSpacing: 16,
             title: const Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.shield_rounded,
                   color: AppTheme.emeraldSecure,
-                  size: 20,
+                  size: 24,
                 ),
-                SizedBox(width: 6),
+                SizedBox(width: 8),
                 Text(
                   'SuperXSecret',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 19,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ],
             ),
-            bottom: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor: AppTheme.emeraldSecure,
-              labelColor: AppTheme.emeraldSecure,
-              unselectedLabelColor: AppTheme.textSecondaryOf(context),
-              tabs: [
-                Tab(
-                  icon: const Icon(Icons.notes_rounded, size: 18),
-                  text:
-                      '${strings.tabText} (${items.where((i) => i.category == VaultItemCategory.text).length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.image_outlined, size: 18),
-                  text:
-                      '${strings.tabImage} (${items.where((i) => i.category == VaultItemCategory.image).length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.audiotrack_outlined, size: 18),
-                  text:
-                      '${strings.tabAudio} (${items.where((i) => i.category == VaultItemCategory.audio).length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.videocam_outlined, size: 18),
-                  text:
-                      '${strings.tabVideo} (${items.where((i) => i.category == VaultItemCategory.video).length})',
-                ),
-                Tab(
-                  icon: const Icon(Icons.insert_drive_file_outlined, size: 18),
-                  text:
-                      '${strings.tabFile} (${items.where((i) => i.category == VaultItemCategory.file).length})',
-                ),
-              ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(96),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildActionToolbar(context, strings),
+                  TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    indicatorColor: AppTheme.emeraldSecure,
+                    labelColor: AppTheme.emeraldSecure,
+                    unselectedLabelColor: AppTheme.textSecondaryOf(context),
+                    tabs: [
+                      Tab(
+                        icon: const Icon(Icons.notes_rounded, size: 18),
+                        text:
+                            '${strings.tabText} (${items.where((i) => i.category == VaultItemCategory.text).length})',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.image_outlined, size: 18),
+                        text:
+                            '${strings.tabImage} (${items.where((i) => i.category == VaultItemCategory.image).length})',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.audiotrack_outlined, size: 18),
+                        text:
+                            '${strings.tabAudio} (${items.where((i) => i.category == VaultItemCategory.audio).length})',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.videocam_outlined, size: 18),
+                        text:
+                            '${strings.tabVideo} (${items.where((i) => i.category == VaultItemCategory.video).length})',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                        text:
+                            '${strings.tabFile} (${items.where((i) => i.category == VaultItemCategory.file).length})',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            actions: [
-              IconButton(
-                tooltip: strings.theme,
-                icon: Icon(
-                  AppTheme.isDarkMode(context)
-                      ? Icons.dark_mode_rounded
-                      : Icons.light_mode_rounded,
-                ),
-                onPressed: () => showThemeSelectionDialog(
-                  context,
-                  AppThemeScope.of(context),
-                ),
-              ),
-              IconButton(
-                tooltip: strings.language,
-                icon: const Icon(Icons.language_rounded),
-                onPressed: () => showLanguageSelectionDialog(
-                  context,
-                  AppLanguageScope.of(context),
-                ),
-              ),
-              IconButton(
-                tooltip: strings.importSxsi,
-                icon: const Icon(Icons.file_download_outlined),
-                onPressed: () => _showImportSxsiDialog(context),
-              ),
-              IconButton(
-                tooltip: strings.backupSxs,
-                icon: const Icon(Icons.import_export_rounded),
-                onPressed: () => _showSxsBackupDialog(context),
-              ),
-              IconButton(
-                tooltip: strings.pinPad,
-                icon: const Icon(Icons.dialpad_rounded),
-                onPressed: () => _showScrambledKeypadDemoSheet(context),
-              ),
-              IconButton(
-                tooltip: strings.loadDemoDataBtn,
-                icon: const Icon(Icons.auto_awesome_outlined),
-                onPressed: () => _confirmLoadDemoData(context, strings),
-              ),
-              IconButton(
-                tooltip: strings.lockVault,
-                icon: const Icon(
-                  Icons.lock_outline_rounded,
-                  color: AppTheme.amberWarning,
-                ),
-                onPressed: () {
-                  widget.viewModel.hideAndZeroizeRevealedSecret();
-                  widget.onLockRequested();
-                },
-              ),
-            ],
           ),
           body: Column(
             children: [
@@ -427,6 +387,91 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
             child: Text(strings.loadDemoDataBtn),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionToolbar(BuildContext context, AppStrings strings) {
+    return Container(
+      height: 46,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCardOf(context).withValues(alpha: 0.6),
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.borderHighlightOf(context).withValues(alpha: 0.4),
+          ),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: strings.theme,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                AppTheme.isDarkMode(context)
+                    ? Icons.dark_mode_rounded
+                    : Icons.light_mode_rounded,
+                size: 20,
+              ),
+              onPressed: () => showThemeSelectionDialog(
+                context,
+                AppThemeScope.of(context),
+              ),
+            ),
+            IconButton(
+              tooltip: strings.language,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.language_rounded, size: 20),
+              onPressed: () => showLanguageSelectionDialog(
+                context,
+                AppLanguageScope.of(context),
+              ),
+            ),
+            IconButton(
+              tooltip: strings.importSxsi,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.file_download_outlined, size: 20),
+              onPressed: () => _showImportSxsiDialog(context),
+            ),
+            IconButton(
+              tooltip: strings.backupSxs,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.import_export_rounded, size: 20),
+              onPressed: () => _showSxsBackupDialog(context),
+            ),
+            IconButton(
+              tooltip: strings.pinPad,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.dialpad_rounded, size: 20),
+              onPressed: () => _showScrambledKeypadDemoSheet(context),
+            ),
+            IconButton(
+              tooltip: strings.loadDemoDataBtn,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+              onPressed: () => _confirmLoadDemoData(context, strings),
+            ),
+            IconButton(
+              tooltip: strings.lockVault,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.lock_outline_rounded,
+                color: AppTheme.amberWarning,
+                size: 20,
+              ),
+              onPressed: () {
+                widget.viewModel.hideAndZeroizeRevealedSecret();
+                widget.onLockRequested();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

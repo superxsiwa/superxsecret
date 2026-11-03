@@ -230,6 +230,76 @@ void main() {
       expect(find.text('Security Notice'), findsOneWidget);
       expect(find.byType(CheckboxListTile), findsOneWidget);
       expect(find.textContaining('zero-knowledge offline vault'), findsOneWidget);
+      expect(find.text(AppStrings.english.confirmMasterPasswordLabel), findsOneWidget);
+      expect(find.text(AppStrings.english.noBackdoorWarning), findsOneWidget);
+      expect(find.text(AppStrings.english.emergencyKitAdvice), findsOneWidget);
+    });
+
+    testWidgets('LockScreenView setup validates matching confirm password',
+        (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = VaultRepository(
+        rustFfiService: RustVaultFfiService(includeDemoData: false),
+        osHardeningService: OsHardeningService(),
+      );
+      final authVm = AuthViewModel(vaultRepository: repo);
+
+      await tester.pumpWidget(
+        AppLanguageScope(
+          controller: AppLanguageController()..setLanguage(AppLanguage.english),
+          child: MaterialApp(
+            home: Scaffold(
+              body: LockScreenView(
+                viewModel: authVm,
+                onVaultUnlocked: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check disclaimer
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+
+      // Enter mismatched passwords
+      final textFields = find.byType(TextField);
+      // textFields.at(0) is Master Password
+      // textFields.at(1) is Confirm Master Password
+      // textFields.at(2) is Secondary Duress PIN
+      // textFields.at(3) is Password Hint
+      await tester.enterText(textFields.at(0), 'CorrectPassword123!');
+      await tester.enterText(textFields.at(1), 'MismatchedPassword999!');
+      await tester.enterText(textFields.at(2), 'DecoyPasswordPin');
+      await tester.pumpAndSettle();
+
+      final saveBtn = find.widgetWithText(FilledButton, 'Save');
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      // Should display passwordsDoNotMatch snackbar and NOT initialize vault
+      expect(find.text(AppStrings.english.passwordsDoNotMatch), findsOneWidget);
+      expect(authVm.isVaultInitialized, isFalse);
+
+      // Now enter matching password
+      await tester.enterText(textFields.at(1), 'CorrectPassword123!');
+      await tester.pumpAndSettle();
+
+      await tester.tap(saveBtn);
+      await tester.runAsync(() async {
+        final stopAt = DateTime.now().add(const Duration(seconds: 4));
+        while (!authVm.isVaultInitialized && DateTime.now().isBefore(stopAt)) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await tester.pumpAndSettle();
+
+      expect(authVm.isVaultInitialized, isTrue);
     });
   });
 }

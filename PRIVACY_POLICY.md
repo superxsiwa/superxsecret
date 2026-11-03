@@ -24,3 +24,4 @@ At **SuperXSecret**, your privacy is absolute. The application is designed from 
 ## 📄 Open Source & Auditing
 SuperXSecret source code is openly auditable at:
 `https://github.com/superxsiwa/superxsecret`
+

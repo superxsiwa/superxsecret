@@ -236,6 +236,10 @@ class AppStrings {
     required this.loadDemoDataConfirmTitle,
     required this.loadDemoDataConfirmContent,
     required this.demoDataLoadedSnackbar,
+    required this.confirmMasterPasswordLabel,
+    required this.passwordsDoNotMatch,
+    required this.emergencyKitAdvice,
+    required this.noBackdoorWarning,
   });
 
   final String appName;
@@ -394,6 +398,10 @@ class AppStrings {
   final String loadDemoDataConfirmTitle;
   final String loadDemoDataConfirmContent;
   final String demoDataLoadedSnackbar;
+  final String confirmMasterPasswordLabel;
+  final String passwordsDoNotMatch;
+  final String emergencyKitAdvice;
+  final String noBackdoorWarning;
 
   static final AppStrings english = AppStrings(
     appName: 'SuperXSecret',
@@ -540,7 +548,7 @@ class AppStrings {
         'Your secrets never leave this device. Zero servers, zero analytics, zero network permissions.',
     disclaimerNoRecoveryTitle: 'Zero Password Recovery',
     disclaimerNoRecoveryDesc:
-        'If you forget your password, all vault data is lost forever. There is no reset button or support recovery.',
+        'If you forget your password, all vault data is lost forever. Even the creators and developers have ZERO backdoor access and cannot decrypt or recover your data under any circumstance.',
     disclaimerBackupRequiredTitle: 'Regular Offline Backups',
     disclaimerBackupRequiredDesc:
         'Export your encrypted .sxs backup to a secure USB drive or cold storage to protect against device loss.',
@@ -548,7 +556,7 @@ class AppStrings {
     disclaimerDualSlotDesc:
         'Set a Master Password for real data and a Secondary PIN to reveal a decoy vault if coerced.',
     disclaimerCheckboxLabel:
-        'I understand this is a zero-knowledge offline vault and lost passwords cannot be recovered under any circumstance.',
+        'I understand this is a zero-knowledge offline vault: even the developers have no backdoor and cannot recover my data if the password is lost.',
     disclaimerProceedBtn: 'I Understand & Proceed',
     disclaimerViewNotice: 'Security Notice',
     emptyVaultTitle: 'Your Vault is Empty',
@@ -559,6 +567,12 @@ class AppStrings {
     loadDemoDataConfirmContent:
         'This will populate sample mock items (e.g. sample card, demo secret) so you can test all features safely.',
     demoDataLoadedSnackbar: 'Sample demo data loaded successfully',
+    confirmMasterPasswordLabel: 'Confirm Master Password',
+    passwordsDoNotMatch: 'Master password and confirmation password do not match',
+    emergencyKitAdvice:
+        'Critical: Write down your password and keep it in a secure offline physical location (Emergency Sheet).',
+    noBackdoorWarning:
+        'Zero Backdoor: Even the creators cannot decrypt or recover your vault.',
   );
 
   static final AppStrings thai = AppStrings(
@@ -706,7 +720,7 @@ class AppStrings {
         'ข้อมูลของคุณไม่เคยออกจากเครื่องนี้ ไม่มีเซิร์ฟเวอร์ ไม่มีการส่งข้อมูล หรือเก็บสถิติใดๆ ทั้งสิ้น',
     disclaimerNoRecoveryTitle: 'ไม่สามารถกู้คืนรหัสผ่านได้ทุกกรณี',
     disclaimerNoRecoveryDesc:
-        'หากคุณลืมรหัสผ่าน ข้อมูลทั้งหมดจะสูญหายถาวร ไม่มีทีมงานหรือระบบใดสามารถรีเซ็ตรหัสผ่านให้คุณได้',
+        'หากคุณลืมรหัสผ่าน ข้อมูลทั้งหมดจะสูญหายถาวรทันที แม้แต่ทีมผู้พัฒนาหรือซูเปอร์คอมพิวเตอร์ก็ไม่มีกุญแจสำรอง (No Backdoor) และไม่สามารถถอดรหัสให้คุณได้ในทุกกรณี',
     disclaimerBackupRequiredTitle: 'หมั่นสำรองข้อมูลแบบออฟไลน์',
     disclaimerBackupRequiredDesc:
         'ส่งออกไฟล์สำรอง .sxs ที่เข้ารหัสไว้ไปยังแฟลชไดรฟ์หรือ Cold Storage เพื่อความปลอดภัยหากอุปกรณ์สูญหาย',
@@ -714,7 +728,7 @@ class AppStrings {
     disclaimerDualSlotDesc:
         'คุณสามารถตั้งรหัสหลักสำหรับข้อมูลจริง และรหัสสำรองสำหรับเปิดคลังลวงเมื่อตกอยู่ในสถานการณ์ถูกคุกคาม',
     disclaimerCheckboxLabel:
-        'ข้าพเจ้าเข้าใจและยอมรับว่านี่คือระบบ Zero-Knowledge หากลืมรหัสผ่านจะไม่สามารถกู้คืนข้อมูลได้ในทุกกรณี',
+        'ข้าพเจ้าเข้าใจและยอมรับว่านี่คือระบบ Zero-Knowledge: แม้แต่ผู้ผลิตก็ไม่มีกุญแจสำรอง และไม่สามารถช่วยกู้คืนข้อมูลได้หากลืมรหัสผ่าน',
     disclaimerProceedBtn: 'ข้าพเจ้าเข้าใจและพร้อมตั้งค่า',
     disclaimerViewNotice: 'ข้อกำหนดความปลอดภัย',
     emptyVaultTitle: 'คลังนิรภัยยังว่างอยู่',
@@ -725,6 +739,12 @@ class AppStrings {
     loadDemoDataConfirmContent:
         'ระบบจะเพิ่มรายการตัวอย่าง (เช่น บัตรทดลอง, รหัสผ่านตัวอย่าง) ลงในคลัง เพื่อให้คุณทดลองใช้งานฟังก์ชันต่างๆ ได้อย่างครบถ้วน',
     demoDataLoadedSnackbar: 'โหลดข้อมูลตัวอย่างสำเร็จ',
+    confirmMasterPasswordLabel: 'ยืนยันรหัสผ่านหลัก (Confirm Master Password)',
+    passwordsDoNotMatch: 'รหัสผ่านหลักและรหัสผ่านยืนยันไม่ตรงกัน',
+    emergencyKitAdvice:
+        'คำเตือนสำคัญ: โปรดจดรหัสผ่านไว้ในสมุดหรือพื้นที่ปลอดภัยภายนอก (Emergency Sheet) ทันที',
+    noBackdoorWarning:
+        'ไม่มี Backdoor: แม้แต่ผู้ผลิตก็ไม่สามารถถอดรหัสหรือกู้คืนข้อมูลให้ท่านได้',
   );
 }
 

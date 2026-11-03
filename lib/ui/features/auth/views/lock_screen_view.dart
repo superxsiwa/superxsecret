@@ -20,6 +20,8 @@ class LockScreenView extends StatefulWidget {
 
 class _LockScreenViewState extends State<LockScreenView> {
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _duressController = TextEditingController();
   final TextEditingController _passwordHintController = TextEditingController();
   bool _obscurePassword = true;
@@ -41,6 +43,7 @@ class _LockScreenViewState extends State<LockScreenView> {
   @override
   void dispose() {
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _duressController.dispose();
     _passwordHintController.dispose();
     super.dispose();
@@ -52,6 +55,7 @@ class _LockScreenViewState extends State<LockScreenView> {
     );
     if (success && mounted) {
       _passwordController.clear();
+      _confirmPasswordController.clear();
       widget.onVaultUnlocked();
     }
   }
@@ -69,6 +73,16 @@ class _LockScreenViewState extends State<LockScreenView> {
       return;
     }
 
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(strings.passwordsDoNotMatch),
+          backgroundColor: AppTheme.crimsonAlert,
+        ),
+      );
+      return;
+    }
+
     final success = await widget.viewModel.setupDualSlotVault(
       mainPassword: _passwordController.text,
       secondaryPassword: _duressController.text,
@@ -77,6 +91,7 @@ class _LockScreenViewState extends State<LockScreenView> {
     if (success && mounted) {
       await widget.viewModel.acknowledgeDisclaimer();
       _passwordController.clear();
+      _confirmPasswordController.clear();
       _duressController.clear();
       _passwordHintController.clear();
       widget.onVaultUnlocked();
@@ -328,6 +343,23 @@ class _LockScreenViewState extends State<LockScreenView> {
                               const SizedBox(height: 10),
                               _buildEntropyBar(entropy, strings),
                               if (_isConfiguringDualSlot) ...[
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: _obscurePassword,
+                                  enableIMEPersonalizedLearning: false,
+                                  autocorrect: false,
+                                  enableSuggestions: false,
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        strings.confirmMasterPasswordLabel,
+                                    prefixIcon: const Icon(
+                                      Icons.check_circle_outline_rounded,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _buildNoBackdoorWarningBanner(strings),
                                 const SizedBox(height: 16),
                                 TextField(
                                   controller: _duressController,
@@ -544,6 +576,61 @@ class _LockScreenViewState extends State<LockScreenView> {
     );
   }
 
+  Widget _buildNoBackdoorWarningBanner(AppStrings strings) {
+    final isDark = AppTheme.isDarkMode(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.crimsonAlert.withValues(alpha: 0.12)
+            : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.crimsonAlert.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: AppTheme.crimsonAlert,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.noBackdoorWarning,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.crimsonAlert,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  strings.emergencyKitAdvice,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: isDark
+                        ? const Color(0xFFE2E8F0)
+                        : const Color(0xFF475569),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEntropyBar(double bits, AppStrings strings) {
     final progress = (bits / 100.0).clamp(0.0, 1.0);
     final Color barColor;
@@ -572,12 +659,16 @@ class _LockScreenViewState extends State<LockScreenView> {
                 color: Colors.white.withValues(alpha: 0.6),
               ),
             ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: barColor,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: barColor,
+                ),
               ),
             ),
           ],

@@ -9,3 +9,4 @@ storePassword=YourSecretStorePasswordHere
 keyPassword=YourSecretKeyPasswordHere
 keyAlias=superxsecret-upload
 storeFile=superxsecret-upload.jks
+

@@ -31,3 +31,4 @@ echo "1. Copy android/key.properties.example to android/key.properties"
 echo "2. Fill in the storePassword, keyPassword, and storeFile path"
 echo "3. Run: flutter build appbundle --release"
 echo "⚠️ IMPORTANT: Backup $KEYSTORE_PATH in a secure offline physical drive!"
+

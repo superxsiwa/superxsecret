@@ -1,0 +1,11 @@
+# ==============================================================================
+# SuperXSecret Production Release Keystore Configuration Template
+# DO NOT COMMIT key.properties TO VERSION CONTROL!
+# ==============================================================================
+# Run ./scripts/generate_release_keystore.sh to generate your release keystore,
+# then copy this file to android/key.properties and fill in your passwords.
+
+storePassword=YourSecretStorePasswordHere
+keyPassword=YourSecretKeyPasswordHere
+keyAlias=superxsecret-upload
+storeFile=superxsecret-upload.jks

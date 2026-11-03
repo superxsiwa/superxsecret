@@ -50,3 +50,10 @@ app.*.map.json
 # Rust build artifacts
 /rust_core/target/
 /rust_core/Cargo.lock
+
+# Android Signing Keystore & Credentials
+*.jks
+*.keystore
+key.properties
+**/android/key.properties
+

@@ -17,3 +17,6 @@
 # Security and storage
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**
+
+# Play Core deferred components suppression (offline vault)
+-dontwarn com.google.android.play.core.**

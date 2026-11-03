@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- SuperXSecret Shield Base -->
+    <path
+        android:fillColor="#0D201A"
+        android:strokeColor="#10B981"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M48,22 L70,30 C70,52 60,66 48,72 C36,66 26,52 26,30 Z"/>
+
+    <!-- Inner Accent Line -->
+    <path
+        android:strokeColor="#06B6D4"
+        android:strokeWidth="1.0"
+        android:strokeAlpha="0.45"
+        android:pathData="M48,27 L65,33 C65,50 56,62 48,67 C40,62 31,50 31,33 Z"/>
+
+    <!-- Padlock Shackle -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M42,44 V39 C42,35.7 44.7,33 48,33 C51.3,33 54,35.7 54,39 V44"/>
+
+    <!-- Padlock Body -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M39,44 H57 C58.1,44 59,44.9 59,46 V58 C59,59.1 58.1,60 57,60 H39 C37.9,60 37,59.1 37,58 V46 C37,44.9 37.9,44 39,44 Z"/>
+
+    <!-- Keyhole -->
+    <path
+        android:fillColor="#0B0E14"
+        android:pathData="M48,48.5 A2.2,2.2 0 1 0 48,52.9 A2.2,2.2 0 1 0 48,48.5 Z M46.8,51.5 L49.2,51.5 L49.6,56 L46.4,56 Z"/>
+</vector>

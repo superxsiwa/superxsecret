@@ -148,36 +148,35 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                   _buildActionToolbar(context, strings),
                   TabBar(
                     controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
+                    isScrollable: false,
                     indicatorColor: AppTheme.emeraldSecure,
                     labelColor: AppTheme.emeraldSecure,
                     unselectedLabelColor: AppTheme.textSecondaryOf(context),
                     tabs: [
                       Tab(
-                        icon: const Icon(Icons.notes_rounded, size: 18),
+                        icon: const Icon(Icons.notes_rounded, size: 20),
                         text:
-                            '${strings.tabText} (${items.where((i) => i.category == VaultItemCategory.text).length})',
+                            '(${items.where((i) => i.category == VaultItemCategory.text).length})',
                       ),
                       Tab(
-                        icon: const Icon(Icons.image_outlined, size: 18),
+                        icon: const Icon(Icons.image_outlined, size: 20),
                         text:
-                            '${strings.tabImage} (${items.where((i) => i.category == VaultItemCategory.image).length})',
+                            '(${items.where((i) => i.category == VaultItemCategory.image).length})',
                       ),
                       Tab(
-                        icon: const Icon(Icons.audiotrack_outlined, size: 18),
+                        icon: const Icon(Icons.audiotrack_outlined, size: 20),
                         text:
-                            '${strings.tabAudio} (${items.where((i) => i.category == VaultItemCategory.audio).length})',
+                            '(${items.where((i) => i.category == VaultItemCategory.audio).length})',
                       ),
                       Tab(
-                        icon: const Icon(Icons.videocam_outlined, size: 18),
+                        icon: const Icon(Icons.videocam_outlined, size: 20),
                         text:
-                            '${strings.tabVideo} (${items.where((i) => i.category == VaultItemCategory.video).length})',
+                            '(${items.where((i) => i.category == VaultItemCategory.video).length})',
                       ),
                       Tab(
-                        icon: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                        icon: const Icon(Icons.insert_drive_file_outlined, size: 20),
                         text:
-                            '${strings.tabFile} (${items.where((i) => i.category == VaultItemCategory.file).length})',
+                            '(${items.where((i) => i.category == VaultItemCategory.file).length})',
                       ),
                     ],
                   ),
@@ -209,24 +208,21 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                       ),
                     ),
                     const SizedBox(width: 10),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
+                    IconButton.filled(
+                      style: IconButton.styleFrom(
                         backgroundColor: AppTheme.emeraldSecure,
                         foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        padding: const EdgeInsets.all(12),
                       ),
+                      tooltip: strings.newTopicBtn,
                       onPressed: () => _showNewTopicDialog(
                         context,
                         initialCategory: _selectedCategory,
                       ),
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: Text(
-                        strings.newTopicBtn,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
+                      icon: const Icon(Icons.add_rounded, size: 22),
                     ),
                   ],
                 ),

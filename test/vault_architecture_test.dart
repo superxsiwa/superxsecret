@@ -416,7 +416,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('New'), findsOneWidget);
+      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsNothing);
       expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
       expect(find.text('View'), findsWidgets);
@@ -454,7 +454,7 @@ void main() {
         const Duration(seconds: 10),
       );
 
-      await tester.tap(find.text('New'));
+      await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pumpAndSettle(
         const Duration(milliseconds: 100),
         EnginePhase.sendSemanticsUpdate,

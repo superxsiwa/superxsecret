@@ -57,7 +57,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     super.dispose();
   }
 
-  IconData _categoryIcon(VaultItemCategory category) {
+  static IconData _categoryIcon(VaultItemCategory category) {
     switch (category) {
       case VaultItemCategory.text:
         return Icons.notes_rounded;
@@ -72,7 +72,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     }
   }
 
-  String _categoryName(VaultItemCategory category, AppStrings strings) {
+  static String _categoryName(VaultItemCategory category, AppStrings strings) {
     switch (category) {
       case VaultItemCategory.text:
         return strings.tabText;
@@ -87,7 +87,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     }
   }
 
-  String _pickFileButtonLabel(VaultItemCategory category, AppStrings strings) {
+  static String _pickFileButtonLabel(VaultItemCategory category, AppStrings strings) {
     switch (category) {
       case VaultItemCategory.image:
         return strings.selectImage;
@@ -100,7 +100,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     }
   }
 
-  String _formatBytes(int bytes) {
+  static String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -1395,7 +1395,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     });
   }
 
-  String _cipherTypeName(VaultCipherType cipher, AppStrings strings) {
+  static String _cipherTypeName(VaultCipherType cipher, AppStrings strings) {
     switch (cipher) {
       case VaultCipherType.aes256Gcm:
         return strings.cipherAes256Gcm;
@@ -1414,388 +1414,23 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     BuildContext context, {
     VaultItemCategory initialCategory = VaultItemCategory.text,
   }) async {
-    final strings = AppLanguageScope.stringsOf(context);
-    final topicCtrl = TextEditingController();
-    final secretCtrl = TextEditingController();
-    final hintCtrl = TextEditingController();
-    final itemPasswordCtrl = TextEditingController();
-    final confirmPasswordCtrl = TextEditingController();
-    var selectedCategory = initialCategory;
-    PickedFileData? pickedFile;
-    var selectedCipher = VaultCipherType.aes256Gcm;
-    var hasExtraLock = false;
-    var passwordEntropyBits = 0.0;
-    String? errorMsg;
-    var isEncoding = false;
-    var encodingPercent = 0.0;
-    var countdownSeconds = 1.0;
-    _EncodingProgressTracker? tracker;
-
     await showDialog<void>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(strings.newTopicTitle),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<VaultItemCategory>(
-                      initialValue: selectedCategory,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: strings.categoryLabel,
-                        isDense: true,
-                      ),
-                      items: VaultItemCategory.values.map((cat) {
-                        return DropdownMenuItem<VaultItemCategory>(
-                          value: cat,
-                          child: Row(
-                            children: [
-                              Icon(_categoryIcon(cat), size: 18),
-                              const SizedBox(width: 8),
-                              Text(_categoryName(cat, strings)),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            selectedCategory = val;
-                            errorMsg = null;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: topicCtrl,
-                      enableIMEPersonalizedLearning: false,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: InputDecoration(
-                        labelText: strings.topicFieldLabel,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (selectedCategory == VaultItemCategory.text)
-                      TextField(
-                        controller: secretCtrl,
-                        maxLines: 3,
-                        enableIMEPersonalizedLearning: false,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: InputDecoration(
-                          labelText: strings.secretTextFieldLabel,
-                          suffixIcon: IconButton(
-                            tooltip: strings.pinPad,
-                            icon: const Icon(Icons.dialpad_rounded, size: 20),
-                            onPressed: () {
-                              _showScrambledKeypadDemoSheet(
-                                context,
-                                onPinSaved: (pin) {
-                                  setDialogState(() {
-                                    secretCtrl.text = pin;
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      )
-                    else ...[
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final String? mimeFilter;
-                          switch (selectedCategory) {
-                            case VaultItemCategory.image:
-                              mimeFilter = 'image/*';
-                              break;
-                            case VaultItemCategory.audio:
-                              mimeFilter = 'audio/*';
-                              break;
-                            case VaultItemCategory.video:
-                              mimeFilter = 'video/*';
-                              break;
-                            default:
-                              mimeFilter = null;
-                          }
-                          final file = await PlatformFileHelper.pickAnyFile(
-                            mimeTypeFilter: mimeFilter,
-                          );
-                          if (file != null) {
-                            setDialogState(() {
-                              pickedFile = file;
-                              if (topicCtrl.text.trim().isEmpty) {
-                                final dotIndex = file.name.lastIndexOf('.');
-                                topicCtrl.text = dotIndex > 0
-                                    ? file.name.substring(0, dotIndex)
-                                    : file.name;
-                              }
-                              errorMsg = null;
-                            });
-                          }
-                        },
-                        icon: Icon(
-                          pickedFile == null
-                              ? Icons.upload_file_rounded
-                              : Icons.check_circle_rounded,
-                          color: pickedFile == null
-                              ? null
-                              : AppTheme.emeraldSecure,
-                        ),
-                        label: Text(
-                          pickedFile == null
-                              ? _pickFileButtonLabel(selectedCategory, strings)
-                              : strings.fileSelectedInfo(
-                                  pickedFile!.name,
-                                  _formatBytes(pickedFile!.size),
-                                ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: secretCtrl,
-                        maxLines: 2,
-                        enableIMEPersonalizedLearning: false,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: InputDecoration(
-                          labelText: strings.optionalSecretNote,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<VaultCipherType>(
-                      initialValue: selectedCipher,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: strings.encryptionMethod,
-                        isDense: true,
-                      ),
-                      items: VaultCipherType.values.map((cipher) {
-                        return DropdownMenuItem<VaultCipherType>(
-                          value: cipher,
-                          child: Text(
-                            _cipherTypeName(cipher, strings),
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() => selectedCipher = val);
-                        }
-                      },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: hasExtraLock,
-                      title: Text(strings.extraLockSwitch),
-                      subtitle: Text(strings.extraLockSub),
-                      onChanged: (value) => setDialogState(() {
-                        hasExtraLock = value;
-                        errorMsg = null;
-                      }),
-                    ),
-                    if (hasExtraLock) ...[
-                      TextField(
-                        controller: itemPasswordCtrl,
-                        obscureText: true,
-                        enableIMEPersonalizedLearning: false,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        onChanged: (value) => setDialogState(() {
-                          passwordEntropyBits =
-                              widget.viewModel.estimatePasswordEntropyBits(
-                            value,
-                          );
-                        }),
-                        decoration: InputDecoration(
-                          labelText: strings.itemPasswordLabel,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: confirmPasswordCtrl,
-                        obscureText: true,
-                        enableIMEPersonalizedLearning: false,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: InputDecoration(
-                          labelText: strings.confirmPasswordLabel,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildItemPasswordStrength(context, passwordEntropyBits),
-                      const SizedBox(height: 8),
-                      Text(
-                        strings.extraLockWarning,
-                        style: const TextStyle(
-                          color: AppTheme.amberWarning,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: hintCtrl,
-                      enableIMEPersonalizedLearning: false,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: InputDecoration(
-                        labelText: hasExtraLock
-                            ? strings.passwordHintLabel
-                            : strings.passwordHintOptional,
-                      ),
-                    ),
-                    if (isEncoding) ...[
-                      const SizedBox(height: 12),
-                      _buildEncodingProgressWidget(
-                        context,
-                        percent: encodingPercent,
-                        countdownSeconds: countdownSeconds,
-                        title: strings.encodingData,
-                      ),
-                    ],
-                    if (errorMsg != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        errorMsg!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.crimsonAlert,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isEncoding ? null : () => Navigator.of(ctx).pop(),
-                  child: Text(strings.cancel),
-                ),
-                FilledButton(
-                  onPressed: isEncoding
-                      ? null
-                      : () async {
-                          if (topicCtrl.text.trim().isEmpty) {
-                            setDialogState(() {
-                              errorMsg = 'Name is required.';
-                            });
-                            return;
-                          }
-                          if (selectedCategory == VaultItemCategory.text &&
-                              secretCtrl.text.trim().isEmpty) {
-                            setDialogState(() {
-                              errorMsg = 'Name and Secret Text are required.';
-                            });
-                            return;
-                          }
-                          if (selectedCategory != VaultItemCategory.text &&
-                              pickedFile == null) {
-                            setDialogState(() {
-                              errorMsg = _pickFileButtonLabel(
-                                selectedCategory,
-                                strings,
-                              );
-                            });
-                            return;
-                          }
-                          if (hasExtraLock &&
-                              (itemPasswordCtrl.text.length < 6 ||
-                                  itemPasswordCtrl.text !=
-                                      confirmPasswordCtrl.text ||
-                                  hintCtrl.text.trim().isEmpty)) {
-                            setDialogState(() {
-                              errorMsg = itemPasswordCtrl.text.length < 6
-                                  ? 'Item Password must be at least 6 characters.'
-                                  : itemPasswordCtrl.text !=
-                                          confirmPasswordCtrl.text
-                                      ? 'Item passwords do not match.'
-                                      : 'Password Hint is required for Extra Lock.';
-                            });
-                            return;
-                          }
-                          final estimatedMs = kIsWeb
-                              ? (hasExtraLock ? 3200 : 2200)
-                              : (hasExtraLock ? 1500 : 900);
-                          setDialogState(() {
-                            isEncoding = true;
-                            errorMsg = null;
-                            encodingPercent = 0.0;
-                            countdownSeconds = estimatedMs / 1000.0;
-                          });
-
-                          tracker = _EncodingProgressTracker(
-                            estimatedDuration:
-                                Duration(milliseconds: estimatedMs),
-                            onUpdate: (pct, remaining) {
-                              setDialogState(() {
-                                encodingPercent = pct;
-                                countdownSeconds = remaining;
-                              });
-                            },
-                          )..start();
-
-                          try {
-                            await widget.viewModel.createTopic(
-                              topic: topicCtrl.text,
-                              secretText: secretCtrl.text,
-                              hasExtraLock: hasExtraLock,
-                              itemPassword:
-                                  hasExtraLock ? itemPasswordCtrl.text : null,
-                              passwordHint: hintCtrl.text,
-                              cipherType: selectedCipher,
-                              category: selectedCategory,
-                              fileName: pickedFile?.name,
-                              fileSizeBytes: pickedFile?.size,
-                              mimeType: pickedFile?.mimeType,
-                              rawBytes: pickedFile?.bytes,
-                            );
-                            tracker?.complete();
-                            await Future<void>.delayed(
-                              const Duration(milliseconds: 150),
-                            );
-                            if (ctx.mounted) Navigator.of(ctx).pop();
-                            if (mounted &&
-                                _tabController.index !=
-                                    selectedCategory.index) {
-                              _tabController.animateTo(selectedCategory.index);
-                            }
-                          } catch (e) {
-                            tracker?.dispose();
-                            setDialogState(() {
-                              isEncoding = false;
-                              errorMsg = e.toString();
-                            });
-                          }
-                        },
-                  child: isEncoding
-                      ? Text('${strings.encodingData} ${(encodingPercent * 100).toInt()}%...')
-                      : Text(strings.save),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (ctx) => _NewTopicDialog(
+        viewModel: widget.viewModel,
+        initialCategory: initialCategory,
+        onCategorySaved: (cat) {
+          if (mounted && _tabController.index != cat.index) {
+            _tabController.animateTo(cat.index);
+          }
+        },
+        showPinPad: (ctx, {onPinSaved}) =>
+            _showScrambledKeypadDemoSheet(ctx, onPinSaved: onPinSaved),
+      ),
     );
-    topicCtrl.dispose();
-    secretCtrl.dispose();
-    hintCtrl.dispose();
-    itemPasswordCtrl.dispose();
-    confirmPasswordCtrl.dispose();
   }
 
-  Widget _buildItemPasswordStrength(BuildContext context, double bits) {
+  static Widget _buildItemPasswordStrength(BuildContext context, double bits) {
     final strings = AppLanguageScope.stringsOf(context);
     final strength = (bits / 100).clamp(0.0, 1.0);
     final color = bits < 45
@@ -1826,7 +1461,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     );
   }
 
-  Widget _buildEncodingProgressWidget(
+  static Widget _buildEncodingProgressWidget(
     BuildContext context, {
     required double percent,
     required double countdownSeconds,
@@ -1851,29 +1486,35 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppTheme.emeraldSecure,
+              Expanded(
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.emeraldSecure,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$progressTitle $pctInt%',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.emeraldSecure,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        '$progressTitle $pctInt%',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.emeraldSecure,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -3069,5 +2710,417 @@ class _EncodingProgressTracker {
   void dispose() {
     _timer?.cancel();
     _stopwatch.stop();
+  }
+}
+
+class _NewTopicDialog extends StatefulWidget {
+  final VaultViewModel viewModel;
+  final VaultItemCategory initialCategory;
+  final void Function(VaultItemCategory category) onCategorySaved;
+  final void Function(BuildContext context, {void Function(String pin)? onPinSaved}) showPinPad;
+
+  const _NewTopicDialog({
+    required this.viewModel,
+    required this.initialCategory,
+    required this.onCategorySaved,
+    required this.showPinPad,
+  });
+
+  @override
+  State<_NewTopicDialog> createState() => _NewTopicDialogState();
+}
+
+class _NewTopicDialogState extends State<_NewTopicDialog> {
+  late final TextEditingController _topicCtrl;
+  late final TextEditingController _secretCtrl;
+  late final TextEditingController _hintCtrl;
+  late final TextEditingController _itemPasswordCtrl;
+  late final TextEditingController _confirmPasswordCtrl;
+
+  late VaultItemCategory _selectedCategory;
+  PickedFileData? _pickedFile;
+  var _selectedCipher = VaultCipherType.aes256Gcm;
+  var _hasExtraLock = false;
+  var _passwordEntropyBits = 0.0;
+  String? _errorMsg;
+  var _isEncoding = false;
+  var _encodingPercent = 0.0;
+  var _countdownSeconds = 1.0;
+  _EncodingProgressTracker? _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _topicCtrl = TextEditingController();
+    _secretCtrl = TextEditingController();
+    _hintCtrl = TextEditingController();
+    _itemPasswordCtrl = TextEditingController();
+    _confirmPasswordCtrl = TextEditingController();
+    _selectedCategory = widget.initialCategory;
+  }
+
+  @override
+  void dispose() {
+    _tracker?.dispose();
+    _topicCtrl.dispose();
+    _secretCtrl.dispose();
+    _hintCtrl.dispose();
+    _itemPasswordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLanguageScope.stringsOf(context);
+
+    return AlertDialog(
+      title: Text(strings.newTopicTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<VaultItemCategory>(
+              initialValue: _selectedCategory,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: strings.categoryLabel,
+                isDense: true,
+              ),
+              items: VaultItemCategory.values.map((cat) {
+                return DropdownMenuItem<VaultItemCategory>(
+                  value: cat,
+                  child: Row(
+                    children: [
+                      Icon(_VaultDashboardViewState._categoryIcon(cat), size: 18),
+                      const SizedBox(width: 8),
+                      Text(_VaultDashboardViewState._categoryName(cat, strings)),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _selectedCategory = val;
+                    _errorMsg = null;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _topicCtrl,
+              enableIMEPersonalizedLearning: false,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: strings.topicFieldLabel,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (_selectedCategory == VaultItemCategory.text)
+              TextField(
+                controller: _secretCtrl,
+                maxLines: 3,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: strings.secretTextFieldLabel,
+                  suffixIcon: IconButton(
+                    tooltip: strings.pinPad,
+                    icon: const Icon(Icons.dialpad_rounded, size: 20),
+                    onPressed: () {
+                      widget.showPinPad(
+                        context,
+                        onPinSaved: (pin) {
+                          if (mounted) {
+                            setState(() {
+                              _secretCtrl.text = pin;
+                            });
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              )
+            else ...[
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final String? mimeFilter;
+                  switch (_selectedCategory) {
+                    case VaultItemCategory.image:
+                      mimeFilter = 'image/*';
+                      break;
+                    case VaultItemCategory.audio:
+                      mimeFilter = 'audio/*';
+                      break;
+                    case VaultItemCategory.video:
+                      mimeFilter = 'video/*';
+                      break;
+                    default:
+                      mimeFilter = null;
+                  }
+                  final file = await PlatformFileHelper.pickAnyFile(
+                    mimeTypeFilter: mimeFilter,
+                  );
+                  if (file != null && mounted) {
+                    setState(() {
+                      _pickedFile = file;
+                      if (_topicCtrl.text.trim().isEmpty) {
+                        final dotIndex = file.name.lastIndexOf('.');
+                        _topicCtrl.text = dotIndex > 0
+                            ? file.name.substring(0, dotIndex)
+                            : file.name;
+                      }
+                      _errorMsg = null;
+                    });
+                  }
+                },
+                icon: Icon(
+                  _pickedFile == null
+                      ? Icons.upload_file_rounded
+                      : Icons.check_circle_rounded,
+                  color: _pickedFile == null
+                      ? null
+                      : AppTheme.emeraldSecure,
+                ),
+                label: Text(
+                  _pickedFile == null
+                      ? _VaultDashboardViewState._pickFileButtonLabel(_selectedCategory, strings)
+                      : strings.fileSelectedInfo(
+                          _pickedFile!.name,
+                          _VaultDashboardViewState._formatBytes(_pickedFile!.size),
+                        ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _secretCtrl,
+                maxLines: 2,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: strings.optionalSecretNote,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            DropdownButtonFormField<VaultCipherType>(
+              initialValue: _selectedCipher,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: strings.encryptionMethod,
+                isDense: true,
+              ),
+              items: VaultCipherType.values.map((cipher) {
+                return DropdownMenuItem<VaultCipherType>(
+                  value: cipher,
+                  child: Text(
+                    _VaultDashboardViewState._cipherTypeName(cipher, strings),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _selectedCipher = val);
+                }
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _hasExtraLock,
+              title: Text(strings.extraLockSwitch),
+              subtitle: Text(strings.extraLockSub),
+              onChanged: (value) => setState(() {
+                _hasExtraLock = value;
+                _errorMsg = null;
+              }),
+            ),
+            if (_hasExtraLock) ...[
+              TextField(
+                controller: _itemPasswordCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                onChanged: (value) => setState(() {
+                  _passwordEntropyBits =
+                      widget.viewModel.estimatePasswordEntropyBits(value);
+                }),
+                decoration: InputDecoration(
+                  labelText: strings.itemPasswordLabel,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _confirmPasswordCtrl,
+                obscureText: true,
+                enableIMEPersonalizedLearning: false,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: strings.confirmPasswordLabel,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _VaultDashboardViewState._buildItemPasswordStrength(context, _passwordEntropyBits),
+              const SizedBox(height: 8),
+              Text(
+                strings.extraLockWarning,
+                style: const TextStyle(
+                  color: AppTheme.amberWarning,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: _hintCtrl,
+              enableIMEPersonalizedLearning: false,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: _hasExtraLock
+                    ? strings.passwordHintLabel
+                    : strings.passwordHintOptional,
+              ),
+            ),
+            if (_isEncoding) ...[
+              const SizedBox(height: 12),
+              _VaultDashboardViewState._buildEncodingProgressWidget(
+                context,
+                percent: _encodingPercent,
+                countdownSeconds: _countdownSeconds,
+                title: strings.encodingData,
+              ),
+            ],
+            if (_errorMsg != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorMsg!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.crimsonAlert,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isEncoding ? null : () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+        FilledButton(
+          onPressed: _isEncoding ? null : _submitSave,
+          child: _isEncoding
+              ? Text('${strings.encodingData} ${(_encodingPercent * 100).toInt()}%...')
+              : Text(strings.save),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitSave() async {
+    final strings = AppLanguageScope.stringsOf(context);
+    if (_topicCtrl.text.trim().isEmpty) {
+      setState(() {
+        _errorMsg = 'Name is required.';
+      });
+      return;
+    }
+    if (_selectedCategory == VaultItemCategory.text &&
+        _secretCtrl.text.trim().isEmpty) {
+      setState(() {
+        _errorMsg = 'Name and Secret Text are required.';
+      });
+      return;
+    }
+    if (_selectedCategory != VaultItemCategory.text &&
+        _pickedFile == null) {
+      setState(() {
+        _errorMsg = _VaultDashboardViewState._pickFileButtonLabel(
+          _selectedCategory,
+          strings,
+        );
+      });
+      return;
+    }
+    if (_hasExtraLock &&
+        (_itemPasswordCtrl.text.length < 6 ||
+            _itemPasswordCtrl.text != _confirmPasswordCtrl.text ||
+            _hintCtrl.text.trim().isEmpty)) {
+      setState(() {
+        _errorMsg = _itemPasswordCtrl.text.length < 6
+            ? 'Item Password must be at least 6 characters.'
+            : _itemPasswordCtrl.text != _confirmPasswordCtrl.text
+                ? 'Item passwords do not match.'
+                : 'Password Hint is required for Extra Lock.';
+      });
+      return;
+    }
+
+    final estimatedMs = kIsWeb
+        ? (_hasExtraLock ? 3200 : 2200)
+        : (_hasExtraLock ? 1500 : 900);
+    setState(() {
+      _isEncoding = true;
+      _errorMsg = null;
+      _encodingPercent = 0.0;
+      _countdownSeconds = estimatedMs / 1000.0;
+    });
+
+    _tracker = _EncodingProgressTracker(
+      estimatedDuration: Duration(milliseconds: estimatedMs),
+      onUpdate: (pct, remaining) {
+        if (mounted) {
+          setState(() {
+            _encodingPercent = pct;
+            _countdownSeconds = remaining;
+          });
+        }
+      },
+    )..start();
+
+    try {
+      await widget.viewModel.createTopic(
+        topic: _topicCtrl.text,
+        secretText: _secretCtrl.text,
+        hasExtraLock: _hasExtraLock,
+        itemPassword: _hasExtraLock ? _itemPasswordCtrl.text : null,
+        passwordHint: _hintCtrl.text,
+        cipherType: _selectedCipher,
+        category: _selectedCategory,
+        fileName: _pickedFile?.name,
+        fileSizeBytes: _pickedFile?.size,
+        mimeType: _pickedFile?.mimeType,
+        rawBytes: _pickedFile?.bytes,
+      );
+      _tracker?.complete();
+      await Future<void>.delayed(
+        const Duration(milliseconds: 150),
+      );
+      if (mounted) {
+        widget.onCategorySaved(_selectedCategory);
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      _tracker?.dispose();
+      if (mounted) {
+        setState(() {
+          _isEncoding = false;
+          _errorMsg = e.toString();
+        });
+      }
+    }
   }
 }

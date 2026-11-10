@@ -7,9 +7,11 @@ import '../../../../domain/models/vault_models.dart';
 import '../../../core/controllers/auto_lock_controller.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/controllers/license_controller.dart';
 import '../../../core/utils/platform_file_helper.dart';
 import '../../../core/widgets/scrambled_pin_pad.dart';
 import '../view_models/vault_view_model.dart';
+import 'pro_upgrade_sheet.dart';
 
 class VaultDashboardView extends StatefulWidget {
   const VaultDashboardView({
@@ -17,11 +19,13 @@ class VaultDashboardView extends StatefulWidget {
     required this.viewModel,
     required this.onLockRequested,
     this.autoLockController,
+    this.licenseController,
   });
 
   final VaultViewModel viewModel;
   final VoidCallback onLockRequested;
   final AutoLockController? autoLockController;
+  final LicenseController? licenseController;
 
   @override
   State<VaultDashboardView> createState() => _VaultDashboardViewState();
@@ -369,6 +373,65 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                 AppLanguageScope.of(context),
               ),
             ),
+            if (widget.licenseController != null)
+              ListenableBuilder(
+                listenable: widget.licenseController!,
+                builder: (context, _) {
+                  final isPro = widget.licenseController!.isPro;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => ProUpgradeSheet.show(
+                      context,
+                      licenseController: widget.licenseController!,
+                      currentItemCount: widget.viewModel.filteredItems.length,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: isPro
+                            ? AppTheme.emeraldSecure.withValues(alpha: 0.15)
+                            : AppTheme.cyberCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isPro
+                              ? AppTheme.emeraldSecure.withValues(alpha: 0.4)
+                              : AppTheme.cyberCyan.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isPro
+                                ? Icons.verified_rounded
+                                : Icons.workspace_premium_rounded,
+                            size: 14,
+                            color: isPro
+                                ? AppTheme.emeraldSecure
+                                : AppTheme.cyberCyan,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isPro ? 'PRO' : 'UPGRADE',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: isPro
+                                  ? AppTheme.emeraldSecure
+                                  : AppTheme.cyberCyan,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             IconButton(
               tooltip: strings.importSxsi,
               visualDensity: VisualDensity.compact,
@@ -1873,6 +1936,20 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
     BuildContext context, {
     VaultItemCategory initialCategory = VaultItemCategory.text,
   }) async {
+    final license = widget.licenseController ??
+        (context.findAncestorWidgetOfExactType<LicenseScope>()?.controller);
+    if (license != null &&
+        !license.isPro &&
+        widget.viewModel.filteredItems.length >=
+            LicenseController.maxFreeItems) {
+      await ProUpgradeSheet.show(
+        context,
+        licenseController: license,
+        currentItemCount: widget.viewModel.filteredItems.length,
+      );
+      return;
+    }
+
     await showDialog<void>(
       context: context,
       builder: (ctx) => _NewTopicDialog(

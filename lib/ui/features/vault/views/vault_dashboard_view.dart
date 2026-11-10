@@ -1950,11 +1950,24 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
       return;
     }
 
+    // Free Tier check for initial category selection:
+    if (license != null &&
+        !license.isPro &&
+        initialCategory != VaultItemCategory.text) {
+      await ProUpgradeSheet.show(
+        context,
+        licenseController: license,
+        currentItemCount: widget.viewModel.filteredItems.length,
+      );
+      return;
+    }
+
     await showDialog<void>(
       context: context,
       builder: (ctx) => _NewTopicDialog(
         viewModel: widget.viewModel,
         initialCategory: initialCategory,
+        licenseController: license,
         onCategorySaved: (cat) {
           if (mounted && _tabController.index != cat.index) {
             _tabController.animateTo(cat.index);
@@ -3262,12 +3275,14 @@ class _EncodingProgressTracker {
 class _NewTopicDialog extends StatefulWidget {
   final VaultViewModel viewModel;
   final VaultItemCategory initialCategory;
+  final LicenseController? licenseController;
   final void Function(VaultItemCategory category) onCategorySaved;
   final void Function(BuildContext context, {void Function(String pin)? onPinSaved}) showPinPad;
 
   const _NewTopicDialog({
     required this.viewModel,
     required this.initialCategory,
+    this.licenseController,
     required this.onCategorySaved,
     required this.showPinPad,
   });
@@ -3335,19 +3350,60 @@ class _NewTopicDialogState extends State<_NewTopicDialog> {
                 isDense: true,
               ),
               items: VaultItemCategory.values.map((cat) {
+                final isProOnly = widget.licenseController != null &&
+                    !widget.licenseController!.isPro &&
+                    cat != VaultItemCategory.text;
                 return DropdownMenuItem<VaultItemCategory>(
                   value: cat,
                   child: Row(
                     children: [
-                      Icon(_VaultDashboardViewState._categoryIcon(cat), size: 18),
+                      Icon(
+                        _VaultDashboardViewState._categoryIcon(cat),
+                        size: 18,
+                        color: isProOnly ? AppTheme.textMutedOf(context) : null,
+                      ),
                       const SizedBox(width: 8),
-                      Text(_VaultDashboardViewState._categoryName(cat, strings)),
+                      Text(
+                        _VaultDashboardViewState._categoryName(cat, strings),
+                        style: TextStyle(
+                          color: isProOnly ? AppTheme.textMutedOf(context) : null,
+                        ),
+                      ),
+                      if (isProOnly) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cyberCyan.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'PRO',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.cyberCyan,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
               }).toList(),
               onChanged: (val) {
                 if (val != null) {
+                  final isPro = widget.licenseController?.isPro ?? false;
+                  if (!isPro && val != VaultItemCategory.text) {
+                    if (widget.licenseController != null) {
+                      ProUpgradeSheet.show(
+                        context,
+                        licenseController: widget.licenseController!,
+                        currentItemCount: widget.viewModel.filteredItems.length,
+                      );
+                    }
+                    return;
+                  }
                   setState(() {
                     _selectedCategory = val;
                     _errorMsg = null;
@@ -3578,6 +3634,18 @@ class _NewTopicDialogState extends State<_NewTopicDialog> {
 
   Future<void> _submitSave() async {
     final strings = AppLanguageScope.stringsOf(context);
+    final isPro = widget.licenseController?.isPro ?? false;
+    if (!isPro && _selectedCategory != VaultItemCategory.text) {
+      if (widget.licenseController != null) {
+        await ProUpgradeSheet.show(
+          context,
+          licenseController: widget.licenseController!,
+          currentItemCount: widget.viewModel.filteredItems.length,
+        );
+      }
+      return;
+    }
+
     if (_topicCtrl.text.trim().isEmpty) {
       setState(() {
         _errorMsg = strings.topicNameRequired;

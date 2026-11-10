@@ -14,7 +14,14 @@ class LicenseController extends ChangeNotifier {
       '12f21eaea1309b4b9b37fba2dd9af60ccd8a3ca1d1744623c796a9c668a8b0eb';
 
   /// Maximum items allowed in the Free Tier.
-  static const int maxFreeItems = 15;
+  static const int maxFreeItems = 3;
+
+  /// Whether a specific category is permitted under the current license.
+  /// Free Tier only permits Text secrets. Pro unlocks all media/file categories.
+  bool isCategoryAllowed(String category) {
+    if (_isPro) return true;
+    return category.toLowerCase() == 'text';
+  }
 
   bool _isPro = false;
   String? _licenseKey;

@@ -62,11 +62,16 @@ void main() {
   }
 
   group('LicenseController Unit Tests', () {
-    test('Default status is Free Tier with 15 max items', () async {
+    test('Default status is Free Tier with 3 max items (Text only)', () async {
       final controller = LicenseController();
       await controller.loadLicense();
       expect(controller.isPro, isFalse);
-      expect(LicenseController.maxFreeItems, 15);
+      expect(LicenseController.maxFreeItems, 3);
+      expect(controller.isCategoryAllowed('text'), isTrue);
+      expect(controller.isCategoryAllowed('image'), isFalse);
+      expect(controller.isCategoryAllowed('audio'), isFalse);
+      expect(controller.isCategoryAllowed('video'), isFalse);
+      expect(controller.isCategoryAllowed('file'), isFalse);
       expect(controller.licenseOwner, isNull);
     });
 
@@ -121,7 +126,7 @@ void main() {
             home: Scaffold(
               body: ProUpgradeSheet(
                 licenseController: controller,
-                currentItemCount: 10,
+                currentItemCount: 2,
               ),
             ),
           ),
@@ -130,7 +135,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Upgrade to SuperXSecret Pro'), findsOneWidget);
-      expect(find.text('10 / 15 items'), findsOneWidget);
+      expect(find.text('2 / 3 items'), findsOneWidget);
       expect(find.text('Unlimited Vault Records'), findsOneWidget);
 
       final validKey = await generateTestKey(owner: 'buyer@test.com');
@@ -187,6 +192,53 @@ void main() {
       await tester.pumpAndSettle();
 
       // Pro sheet appears
+      expect(find.text('Upgrade to SuperXSecret Pro'), findsOneWidget);
+    });
+
+    testWidgets('Free tier restricts adding non-text categories directly',
+        (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = VaultRepository(
+        rustFfiService: RustVaultFfiService(includeDemoData: false),
+        osHardeningService: OsHardeningService(),
+      );
+      await repo.setupDualSlotVault(
+        mainPassword: 'MySecurePassword#1',
+        secondaryPassword: 'MySecondaryDecoy123',
+      );
+
+      final viewModel = VaultViewModel(vaultRepository: repo);
+      await viewModel.loadVaultSummaries();
+
+      final licenseController = LicenseController();
+      await licenseController.loadLicense();
+
+      await tester.pumpWidget(
+        AppLanguageScope(
+          controller: AppLanguageController()..setLanguage(AppLanguage.english),
+          child: MaterialApp(
+            home: VaultDashboardView(
+              viewModel: viewModel,
+              licenseController: licenseController,
+              onLockRequested: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Image tab (index 1)
+      await tester.tap(find.byIcon(Icons.image_outlined));
+      await tester.pumpAndSettle();
+
+      // Tap + button while on image tab -> Pro upgrade sheet opens
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+
       expect(find.text('Upgrade to SuperXSecret Pro'), findsOneWidget);
     });
   });

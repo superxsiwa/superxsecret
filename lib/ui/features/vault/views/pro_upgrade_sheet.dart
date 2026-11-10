@@ -262,11 +262,22 @@ class _ProUpgradeSheetState extends State<ProUpgradeSheet> {
                 context,
                 icon: Icons.all_inclusive_rounded,
                 title: isThai
-                    ? 'บันทึกข้อมูลไม่จำกัดจำนวน (Unlimited Items)'
+                    ? 'บันทึกข้อมูลไม่จำกัด (Unlimited Records)'
                     : 'Unlimited Vault Records',
                 desc: isThai
-                    ? 'บันทึกรหัสผ่าน บัตรเครดิต และโน้ตลับได้ไม่จำกัด'
-                    : 'No limits on secrets, topics, and categories',
+                    ? 'ปลดล็อกข้อจำกัด 3 รายการ ให้คุณจัดเก็บได้อย่างไร้ขีดจำกัด'
+                    : 'Remove the 3-item limit and store unlimited secrets',
+              ),
+              const SizedBox(height: 10),
+              _buildFeatureRow(
+                context,
+                icon: Icons.perm_media_rounded,
+                title: isThai
+                    ? 'รองรับไฟล์มัลติมีเดีย (Media & File Vault)'
+                    : 'Encrypted Media & Files',
+                desc: isThai
+                    ? 'ปลดล็อกรูปภาพ (Image), ไฟล์เสียง (Audio), วิดีโอ (Video) และไฟล์เอกสาร (File)'
+                    : 'Encrypt and store photos, audio, videos, and private documents',
               ),
               const SizedBox(height: 10),
               _buildFeatureRow(

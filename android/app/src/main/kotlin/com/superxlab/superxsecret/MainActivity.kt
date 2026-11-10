@@ -1,4 +1,4 @@
-package com.superxsecret.vault
+package com.superxlab.superxsecret
 
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -22,7 +22,7 @@ import java.io.File
 class MainActivity : FlutterFragmentActivity() {
 
     companion object {
-        private const val HARDENING_CHANNEL = "com.superxsecret.vault/hardening"
+        private const val HARDENING_CHANNEL = "com.superxlab.superxsecret/hardening"
     }
 
     private var methodChannel: MethodChannel? = null
@@ -47,7 +47,11 @@ class MainActivity : FlutterFragmentActivity() {
         )
         super.onCreate(savedInstanceState)
 
-        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -166,4 +170,3 @@ class MainActivity : FlutterFragmentActivity() {
         super.onDestroy()
     }
 }
-

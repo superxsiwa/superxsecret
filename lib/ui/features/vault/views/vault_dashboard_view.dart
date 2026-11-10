@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../domain/models/vault_models.dart';
+import '../../../core/controllers/auto_lock_controller.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/platform_file_helper.dart';
@@ -15,10 +16,12 @@ class VaultDashboardView extends StatefulWidget {
     super.key,
     required this.viewModel,
     required this.onLockRequested,
+    this.autoLockController,
   });
 
   final VaultViewModel viewModel;
   final VoidCallback onLockRequested;
+  final AutoLockController? autoLockController;
 
   @override
   State<VaultDashboardView> createState() => _VaultDashboardViewState();
@@ -318,71 +321,8 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.cyberCyan,
-                side: BorderSide(
-                  color: AppTheme.cyberCyan.withValues(alpha: 0.4),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () => _confirmLoadDemoData(context, strings),
-              icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-              label: Text(
-                strings.loadDemoDataBtn,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _confirmLoadDemoData(BuildContext context, AppStrings strings) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.auto_awesome_rounded, color: AppTheme.cyberCyan),
-            const SizedBox(width: 8),
-            Flexible(child: Text(strings.loadDemoDataConfirmTitle)),
-          ],
-        ),
-        content: Text(strings.loadDemoDataConfirmContent),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(strings.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.cyberCyan,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () async {
-              await widget.viewModel.loadSampleDemoData();
-              if (ctx.mounted) {
-                Navigator.of(ctx).pop();
-              }
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(strings.demoDataLoadedSnackbar),
-                    backgroundColor: AppTheme.emeraldSecure,
-                  ),
-                );
-              }
-            },
-            child: Text(strings.loadDemoDataBtn),
-          ),
-        ],
       ),
     );
   }
@@ -442,16 +382,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
               onPressed: () => _showSxsBackupDialog(context),
             ),
             IconButton(
-              tooltip: strings.pinPad,
+              tooltip: strings.pinAndAutoLockSettings,
               visualDensity: VisualDensity.compact,
               icon: const Icon(Icons.dialpad_rounded, size: 20),
-              onPressed: () => _showScrambledKeypadDemoSheet(context),
-            ),
-            IconButton(
-              tooltip: strings.loadDemoDataBtn,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.auto_awesome_outlined, size: 20),
-              onPressed: () => _confirmLoadDemoData(context, strings),
+              onPressed: () => _showPinAndAutoLockSettingsSheet(context),
             ),
             IconButton(
               tooltip: strings.lockVault,
@@ -1105,6 +1039,535 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           ),
         ],
       ),
+    );
+  }
+
+  void _showPinAndAutoLockSettingsSheet(BuildContext context) {
+    final autoLock = widget.autoLockController ??
+        (context.findAncestorWidgetOfExactType<AutoLockScope>()?.controller);
+    if (autoLock == null) return;
+
+    final strings = AppLanguageScope.stringsOf(context);
+    final isThai = AppLanguageScope.of(context).isThai(context);
+
+    var settingPinMode = false;
+    var enteredPin = '';
+    var obscurePin = true;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            return ListenableBuilder(
+              listenable: autoLock,
+              builder: (context, _) {
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emeraldSecure
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.dialpad_rounded,
+                                    size: 20,
+                                    color: AppTheme.emeraldSecure,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  strings.pinAndAutoLockSettings,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        if (!settingPinMode) ...[
+                          // Section 1: Inactivity Timeout options
+                          Text(
+                            strings.inactivityTimeoutLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.cyberCyan,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            strings.inactivityTimeoutDesc,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final m in [1, 2, 3, 5, 0])
+                                ChoiceChip(
+                                  label: Text(
+                                    m == 1
+                                        ? strings.timeout1Min
+                                        : m == 2
+                                            ? strings.timeout2Min
+                                            : m == 3
+                                                ? strings.timeout3Min
+                                                : m == 5
+                                                    ? strings.timeout5Min
+                                                    : strings.timeoutOff,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight:
+                                          autoLock.inactivityTimeoutMinutes == m
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                      color:
+                                          autoLock.inactivityTimeoutMinutes == m
+                                              ? Colors.black
+                                              : AppTheme.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                  selected:
+                                      autoLock.inactivityTimeoutMinutes == m,
+                                  selectedColor: AppTheme.emeraldSecure,
+                                  backgroundColor:
+                                      AppTheme.surfaceElevatedOf(context),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(
+                                      color:
+                                          autoLock.inactivityTimeoutMinutes == m
+                                              ? AppTheme.emeraldSecure
+                                              : AppTheme.borderSubtleOf(context),
+                                    ),
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      autoLock.setInactivityTimeoutMinutes(
+                                        m,
+                                        onHardLogout: widget.onLockRequested,
+                                      );
+                                    }
+                                  },
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Section 2: Screen Off Timeout options
+                          Text(
+                            strings.screenOffTimeoutLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.cyberCyan,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            strings.screenOffTimeoutDesc,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryOf(context),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final m in [0, 1, 2, 3, 5])
+                                ChoiceChip(
+                                  label: Text(
+                                    m == 0
+                                        ? strings.timeoutImmediate
+                                        : m == 1
+                                            ? strings.timeout1Min
+                                            : m == 2
+                                                ? strings.timeout2Min
+                                                : m == 3
+                                                    ? strings.timeout3Min
+                                                    : strings.timeout5Min,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight:
+                                          autoLock.screenOffTimeoutMinutes == m
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                      color:
+                                          autoLock.screenOffTimeoutMinutes == m
+                                              ? Colors.black
+                                              : AppTheme.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                  selected:
+                                      autoLock.screenOffTimeoutMinutes == m,
+                                  selectedColor: AppTheme.emeraldSecure,
+                                  backgroundColor:
+                                      AppTheme.surfaceElevatedOf(context),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(
+                                      color:
+                                          autoLock.screenOffTimeoutMinutes == m
+                                              ? AppTheme.emeraldSecure
+                                              : AppTheme.borderSubtleOf(context),
+                                    ),
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      autoLock.setScreenOffTimeoutMinutes(m);
+                                    }
+                                  },
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Section 2: Quick PIN Status & Controls
+                          Text(
+                            strings.quickPinTitle,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.cyberCyan,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceElevatedOf(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: autoLock.isPinConfigured
+                                    ? AppTheme.emeraldSecure
+                                        .withValues(alpha: 0.35)
+                                    : AppTheme.borderSubtleOf(context),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  autoLock.isPinConfigured
+                                      ? Icons.check_circle_rounded
+                                      : Icons.lock_open_rounded,
+                                  color: autoLock.isPinConfigured
+                                      ? AppTheme.emeraldSecure
+                                      : AppTheme.textSecondaryOf(context),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        autoLock.isPinConfigured
+                                            ? strings.quickPinActive
+                                            : strings.quickPinNotSet,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: autoLock.isPinConfigured
+                                              ? AppTheme.emeraldSecure
+                                              : AppTheme.textPrimaryOf(context),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        autoLock.isPinConfigured
+                                            ? (isThai
+                                                ? 'ใช้ปลดล็อกอย่างรวดเร็วเมื่อพักหน้าจอ'
+                                                : 'Used to quickly resume when paused')
+                                            : (isThai
+                                                ? 'ตั้งค่าเพื่อไม่ต้องพิมพ์ Master Password ทุกครั้ง'
+                                                : 'Set up to avoid typing Master Password repeatedly'),
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: AppTheme.textSecondaryOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              if (!autoLock.isPinConfigured)
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppTheme.emeraldSecure,
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        settingPinMode = true;
+                                        enteredPin = '';
+                                      });
+                                    },
+                                    icon: const Icon(Icons.add_rounded, size: 18),
+                                    label: Text(strings.setPinBtn),
+                                  ),
+                                )
+                              else ...[
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        settingPinMode = true;
+                                        enteredPin = '';
+                                      });
+                                    },
+                                    icon: const Icon(Icons.edit_rounded, size: 16),
+                                    label: Text(strings.changePinBtn),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.crimsonAlert,
+                                  ),
+                                  onPressed: () async {
+                                    await autoLock.removeQuickPin();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text(strings.pinRemovedSnackbar),
+                                          backgroundColor:
+                                              AppTheme.amberWarning,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(Icons.delete_outline_rounded,
+                                      size: 16),
+                                  label: Text(strings.removePinBtn),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Security Notice
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emeraldSecure
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppTheme.emeraldSecure
+                                    .withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.shield_outlined,
+                                  color: AppTheme.emeraldSecure,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    strings.autoLockInfoNotice,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      height: 1.35,
+                                      color: AppTheme.textSecondaryOf(context),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          // Sub-view: Setting/Changing PIN with ScrambledPinPad
+                          Text(
+                            strings.enterPinPrompt,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.cyberCyan,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceElevatedOf(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.borderSubtleOf(context),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    enteredPin.isEmpty
+                                        ? strings.tapDigitsBelow
+                                        : (obscurePin
+                                            ? '• ' * enteredPin.length
+                                            : enteredPin),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: enteredPin.isEmpty ? 13 : 22,
+                                      letterSpacing: enteredPin.isEmpty ? 0 : 4,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.emeraldSecure,
+                                      fontFamily: enteredPin.isEmpty
+                                          ? null
+                                          : 'monospace',
+                                    ),
+                                  ),
+                                ),
+                                if (enteredPin.isNotEmpty)
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    icon: Icon(
+                                      obscurePin
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 18,
+                                      color: AppTheme.textSecondaryOf(context),
+                                    ),
+                                    onPressed: () => setModalState(
+                                      () => obscurePin = !obscurePin,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ScrambledPinPad(
+                            onDigitPressed: (d) {
+                              if (enteredPin.length < 12) {
+                                setModalState(() => enteredPin += d);
+                              }
+                            },
+                            onBackspace: () {
+                              if (enteredPin.isNotEmpty) {
+                                setModalState(
+                                  () => enteredPin = enteredPin.substring(
+                                      0, enteredPin.length - 1),
+                                );
+                              }
+                            },
+                            onReshuffle: () {
+                              setModalState(() => enteredPin = '');
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    setModalState(() {
+                                      settingPinMode = false;
+                                      enteredPin = '';
+                                    });
+                                  },
+                                  child: Text(strings.cancel),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppTheme.emeraldSecure,
+                                    foregroundColor: Colors.black,
+                                  ),
+                                  onPressed: enteredPin.length < 4
+                                      ? null
+                                      : () async {
+                                          await autoLock.setQuickPin(enteredPin);
+                                          setModalState(() {
+                                            settingPinMode = false;
+                                            enteredPin = '';
+                                          });
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                    strings.pinSavedSnackbar),
+                                                backgroundColor:
+                                                    AppTheme.emeraldSecure,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                  child: Text(strings.setPinBtn),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1890,10 +2353,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                           hintCtrl.text.trim().isEmpty) {
                         setDialogState(() {
                           errorMessage = passwordCtrl.text.length < 6
-                              ? 'Item Password must be at least 6 characters.'
+                              ? strings.itemPasswordMinLength
                               : passwordCtrl.text != confirmCtrl.text
-                                  ? 'Item passwords do not match.'
-                                  : 'Password Hint is required.';
+                                  ? strings.itemPasswordsDoNotMatch
+                                  : strings.passwordHintRequired;
                         });
                         return;
                       }
@@ -2014,7 +2477,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                   }
                 } on ItemLockedException {
                   setDialogState(
-                      () => errorMessage = 'Incorrect item password');
+                      () => errorMessage = strings.incorrectItemPassword);
                 } catch (error) {
                   setDialogState(() => errorMessage = error.toString());
                 }
@@ -2088,7 +2551,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     await onUnlocked(null);
                   }
                 } on VaultItemPasswordException {
-                  setDialogState(() => errorMessage = 'Incorrect password');
+                  setDialogState(() => errorMessage = strings.incorrectPassword);
                 } catch (error) {
                   setDialogState(() => errorMessage = error.toString());
                 }
@@ -2107,7 +2570,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                     await onUnlocked(passwordCtrl.text);
                   }
                 } on VaultItemPasswordException {
-                  setDialogState(() => errorMessage = 'Incorrect password');
+                  setDialogState(() => errorMessage = strings.incorrectPassword);
                 } catch (error) {
                   setDialogState(() => errorMessage = error.toString());
                 }
@@ -2396,7 +2859,10 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           },
         );
       },
-    );
+    ).whenComplete(() {
+      tracker?.dispose();
+      filePwdCtrl.dispose();
+    });
   }
 
   void _showImportSxsiDialog(BuildContext context) {
@@ -2510,13 +2976,16 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           },
         );
       },
-    );
+    ).whenComplete(() {
+      packetCtrl.dispose();
+      filePwdCtrl.dispose();
+    });
   }
 
   void _showSxsBackupDialog(BuildContext context) {
     final strings = AppLanguageScope.stringsOf(context);
-    final masterCtrl = TextEditingController(text: 'SuperSecret#2026');
-    final backupPwdCtrl = TextEditingController(text: 'BackupVaultKey#2026');
+    final masterCtrl = TextEditingController();
+    final backupPwdCtrl = TextEditingController();
     final restoreBytesCtrl = TextEditingController();
     String? exportStatus;
 
@@ -2646,7 +3115,7 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
                         backupFilePassword: backupPwdCtrl.text,
                       );
                       setDialogState(() {
-                        exportStatus = 'Backup restored.';
+                        exportStatus = strings.backupRestoredSuccess;
                       });
                     } catch (error) {
                       setDialogState(() => exportStatus = error.toString());
@@ -2659,7 +3128,11 @@ class _VaultDashboardViewState extends State<VaultDashboardView>
           },
         );
       },
-    );
+    ).whenComplete(() {
+      masterCtrl.dispose();
+      backupPwdCtrl.dispose();
+      restoreBytesCtrl.dispose();
+    });
   }
 }
 
@@ -3030,14 +3503,14 @@ class _NewTopicDialogState extends State<_NewTopicDialog> {
     final strings = AppLanguageScope.stringsOf(context);
     if (_topicCtrl.text.trim().isEmpty) {
       setState(() {
-        _errorMsg = 'Name is required.';
+        _errorMsg = strings.topicNameRequired;
       });
       return;
     }
     if (_selectedCategory == VaultItemCategory.text &&
         _secretCtrl.text.trim().isEmpty) {
       setState(() {
-        _errorMsg = 'Name and Secret Text are required.';
+        _errorMsg = strings.topicNameAndSecretRequired;
       });
       return;
     }
@@ -3057,10 +3530,10 @@ class _NewTopicDialogState extends State<_NewTopicDialog> {
             _hintCtrl.text.trim().isEmpty)) {
       setState(() {
         _errorMsg = _itemPasswordCtrl.text.length < 6
-            ? 'Item Password must be at least 6 characters.'
+            ? strings.itemPasswordMinLength
             : _itemPasswordCtrl.text != _confirmPasswordCtrl.text
-                ? 'Item passwords do not match.'
-                : 'Password Hint is required for Extra Lock.';
+                ? strings.itemPasswordsDoNotMatch
+                : strings.passwordHintRequired;
       });
       return;
     }

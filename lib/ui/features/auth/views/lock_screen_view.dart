@@ -25,13 +25,11 @@ class _LockScreenViewState extends State<LockScreenView> {
   final TextEditingController _duressController = TextEditingController();
   final TextEditingController _passwordHintController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isConfiguringDualSlot = false;
   bool _disclaimerCheckboxChecked = false;
 
   @override
   void initState() {
     super.initState();
-    _isConfiguringDualSlot = !widget.viewModel.isVaultInitialized;
     _disclaimerCheckboxChecked = widget.viewModel.hasAcknowledgedDisclaimer;
     widget.viewModel.initializeSecurityCheck().then((_) {
       if (mounted && widget.viewModel.hasAcknowledgedDisclaimer) {
@@ -107,6 +105,7 @@ class _LockScreenViewState extends State<LockScreenView> {
       builder: (context, _) {
         final posture = widget.viewModel.securityPosture;
         final entropy = widget.viewModel.currentEntropyBits;
+        final isConfiguringDualSlot = !widget.viewModel.isVaultInitialized;
 
         return Scaffold(
           body: SafeArea(
@@ -208,7 +207,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                       ),
                       const SizedBox(height: 24),
                       if (posture.isCompromised)
-                        _buildCompromisedDeviceBanner(),
+                        _buildCompromisedDeviceBanner(strings),
                       Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
@@ -229,7 +228,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                                     child: Row(
                                       children: [
                                         Icon(
-                                          _isConfiguringDualSlot
+                                          isConfiguringDualSlot
                                               ? Icons.tune_rounded
                                               : Icons.lock_person_rounded,
                                           size: 18,
@@ -238,7 +237,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
-                                            _isConfiguringDualSlot
+                                            isConfiguringDualSlot
                                                 ? strings.setupDualSlot
                                                 : strings.unlockVault,
                                             overflow: TextOverflow.ellipsis,
@@ -279,34 +278,6 @@ class _LockScreenViewState extends State<LockScreenView> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                    )
-                                  else
-                                    TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: AppTheme.cyberCyan,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _isConfiguringDualSlot =
-                                              !_isConfiguringDualSlot;
-                                        });
-                                      },
-                                      icon: Icon(
-                                        _isConfiguringDualSlot
-                                            ? Icons.login_rounded
-                                            : Icons.layers_rounded,
-                                        size: 15,
-                                      ),
-                                      label: Text(
-                                        _isConfiguringDualSlot
-                                            ? strings.unlock
-                                            : strings.setupDualSlot,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
                                     ),
                                 ],
                               ),
@@ -319,11 +290,11 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 enableSuggestions: false,
                                 onChanged: widget
                                     .viewModel.updatePasswordInputForEntropy,
-                                onSubmitted: (_) => _isConfiguringDualSlot
+                                onSubmitted: (_) => isConfiguringDualSlot
                                     ? null
                                     : _submitUnlock(),
                                 decoration: InputDecoration(
-                                  labelText: _isConfiguringDualSlot
+                                  labelText: isConfiguringDualSlot
                                       ? strings.masterPasswordLabel
                                       : strings.masterPasswordHint,
                                   prefixIcon: const Icon(Icons.key_rounded),
@@ -342,7 +313,7 @@ class _LockScreenViewState extends State<LockScreenView> {
                               ),
                               const SizedBox(height: 10),
                               _buildEntropyBar(entropy, strings),
-                              if (_isConfiguringDualSlot) ...[
+                              if (isConfiguringDualSlot) ...[
                                 const SizedBox(height: 12),
                                 TextField(
                                   controller: _confirmPasswordController,
@@ -481,14 +452,14 @@ class _LockScreenViewState extends State<LockScreenView> {
                                 ),
                                 onPressed: widget.viewModel.isLoading
                                     ? null
-                                    : (_isConfiguringDualSlot
+                                    : (isConfiguringDualSlot
                                         ? _submitDualSlotSetup
                                         : _submitUnlock),
                                 icon: const Icon(Icons.lock_open_rounded),
                                 label: Text(
                                   widget.viewModel.isLoading
                                       ? strings.unlocking
-                                      : (_isConfiguringDualSlot
+                                      : (isConfiguringDualSlot
                                           ? strings.save
                                           : strings.unlock),
                                   style: const TextStyle(
@@ -552,7 +523,7 @@ class _LockScreenViewState extends State<LockScreenView> {
     );
   }
 
-  Widget _buildCompromisedDeviceBanner() {
+  Widget _buildCompromisedDeviceBanner(AppStrings strings) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -561,14 +532,14 @@ class _LockScreenViewState extends State<LockScreenView> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.amberWarning),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: AppTheme.amberWarning),
-          SizedBox(width: 10),
+          const Icon(Icons.warning_amber_rounded, color: AppTheme.amberWarning),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Security Alert: Root, Jailbreak, or Debugger detected on this device.',
-              style: TextStyle(fontSize: 12, color: AppTheme.amberWarning),
+              strings.compromisedDeviceWarning,
+              style: const TextStyle(fontSize: 12, color: AppTheme.amberWarning),
             ),
           ),
         ],

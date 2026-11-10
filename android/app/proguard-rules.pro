@@ -9,6 +9,7 @@
 -keep class io.flutter.plugins.** { *; }
 
 # Native Rust FFI and C++ methods
+-keep class com.superxlab.** { *; }
 -keep class com.superxsecret.** { *; }
 -keepclasseswithmembernames class * {
     native <methods>;

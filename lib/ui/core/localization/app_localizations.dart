@@ -236,10 +236,42 @@ class AppStrings {
     required this.loadDemoDataConfirmTitle,
     required this.loadDemoDataConfirmContent,
     required this.demoDataLoadedSnackbar,
+    required this.pinAndAutoLockSettings,
+    required this.autoLockTimeoutLabel,
+    required this.autoLockTimeoutDesc,
+    required this.inactivityTimeoutLabel,
+    required this.inactivityTimeoutDesc,
+    required this.screenOffTimeoutLabel,
+    required this.screenOffTimeoutDesc,
+    required this.timeoutImmediate,
+    required this.timeout1Min,
+    required this.timeout2Min,
+    required this.timeout3Min,
+    required this.timeout5Min,
+    required this.timeoutOff,
+    required this.quickPinTitle,
+    required this.quickPinActive,
+    required this.quickPinNotSet,
+    required this.setPinBtn,
+    required this.changePinBtn,
+    required this.removePinBtn,
+    required this.pinSavedSnackbar,
+    required this.pinRemovedSnackbar,
+    required this.enterPinPrompt,
+    required this.autoLockInfoNotice,
     required this.confirmMasterPasswordLabel,
     required this.passwordsDoNotMatch,
     required this.emergencyKitAdvice,
     required this.noBackdoorWarning,
+    required this.itemPasswordMinLength,
+    required this.itemPasswordsDoNotMatch,
+    required this.passwordHintRequired,
+    required this.incorrectItemPassword,
+    required this.incorrectPassword,
+    required this.backupRestoredSuccess,
+    required this.compromisedDeviceWarning,
+    required this.topicNameRequired,
+    required this.topicNameAndSecretRequired,
   });
 
   final String appName;
@@ -398,10 +430,42 @@ class AppStrings {
   final String loadDemoDataConfirmTitle;
   final String loadDemoDataConfirmContent;
   final String demoDataLoadedSnackbar;
+  final String pinAndAutoLockSettings;
+  final String autoLockTimeoutLabel;
+  final String autoLockTimeoutDesc;
+  final String inactivityTimeoutLabel;
+  final String inactivityTimeoutDesc;
+  final String screenOffTimeoutLabel;
+  final String screenOffTimeoutDesc;
+  final String timeoutImmediate;
+  final String timeout1Min;
+  final String timeout2Min;
+  final String timeout3Min;
+  final String timeout5Min;
+  final String timeoutOff;
+  final String quickPinTitle;
+  final String quickPinActive;
+  final String quickPinNotSet;
+  final String setPinBtn;
+  final String changePinBtn;
+  final String removePinBtn;
+  final String pinSavedSnackbar;
+  final String pinRemovedSnackbar;
+  final String enterPinPrompt;
+  final String autoLockInfoNotice;
   final String confirmMasterPasswordLabel;
   final String passwordsDoNotMatch;
   final String emergencyKitAdvice;
   final String noBackdoorWarning;
+  final String itemPasswordMinLength;
+  final String itemPasswordsDoNotMatch;
+  final String passwordHintRequired;
+  final String incorrectItemPassword;
+  final String incorrectPassword;
+  final String backupRestoredSuccess;
+  final String compromisedDeviceWarning;
+  final String topicNameRequired;
+  final String topicNameAndSecretRequired;
 
   static final AppStrings english = AppStrings(
     appName: 'SuperXSecret',
@@ -427,7 +491,7 @@ class AppStrings {
     clear: 'Clear',
     delete: 'Delete',
     verifiedOffline:
-        'VERIFIED 0 INTERNET PERMISSIONS • SQLCIPHER 4 + RUST FFI',
+        'VERIFIED 0 INTERNET PERMISSIONS • AES-256-GCM + ARGON2ID',
     zeroKnowledgeSecurity: 'Zero-Knowledge Security',
     aes256Argon2id: 'AES-256-GCM • Argon2id KDF • In-Memory Zeroization',
     masterPasswordLabel: 'Master Password',
@@ -567,12 +631,46 @@ class AppStrings {
     loadDemoDataConfirmContent:
         'This will populate sample mock items (e.g. sample card, demo secret) so you can test all features safely.',
     demoDataLoadedSnackbar: 'Sample demo data loaded successfully',
+    pinAndAutoLockSettings: 'PIN & Auto-Lock Settings',
+    autoLockTimeoutLabel: 'Auto-Lock Timeout',
+    autoLockTimeoutDesc: 'Locks with PIN when idle, or logs out if unattended',
+    inactivityTimeoutLabel: 'In-App Inactivity Timeout',
+    inactivityTimeoutDesc: 'Locks with PIN when app is open without touch interaction',
+    screenOffTimeoutLabel: 'Screen Off / Background Timeout',
+    screenOffTimeoutDesc: 'Logs out and wipes RAM if screen is off or app is paused longer than this',
+    timeoutImmediate: 'Immediate',
+    timeout1Min: '1 Minute',
+    timeout2Min: '2 Minutes',
+    timeout3Min: '3 Minutes',
+    timeout5Min: '5 Minutes',
+    timeoutOff: 'Off (Never)',
+    quickPinTitle: 'Quick Unlock PIN',
+    quickPinActive: 'Quick PIN Active',
+    quickPinNotSet: 'No PIN Configured',
+    setPinBtn: 'Set PIN',
+    changePinBtn: 'Change PIN',
+    removePinBtn: 'Remove PIN',
+    pinSavedSnackbar: 'PIN saved successfully',
+    pinRemovedSnackbar: 'PIN removed',
+    enterPinPrompt: 'Enter 4-8 digits on scrambled keypad',
+    autoLockInfoNotice:
+        'If left idle, the vault locks with PIN. If unattended for the full timeout duration, it completely logs out and wipes memory.',
     confirmMasterPasswordLabel: 'Confirm Master Password',
     passwordsDoNotMatch: 'Master password and confirmation password do not match',
     emergencyKitAdvice:
         'Critical: Write down your password and keep it in a secure offline physical location (Emergency Sheet).',
     noBackdoorWarning:
         'Zero Backdoor: Even the creators cannot decrypt or recover your vault.',
+    itemPasswordMinLength: 'Item Password must be at least 6 characters.',
+    itemPasswordsDoNotMatch: 'Item passwords do not match.',
+    passwordHintRequired: 'Password Hint is required for Extra Lock.',
+    incorrectItemPassword: 'Incorrect item password',
+    incorrectPassword: 'Incorrect password',
+    backupRestoredSuccess: 'Backup restored successfully.',
+    compromisedDeviceWarning:
+        'Security Alert: Root, Jailbreak, or Debugger detected on this device.',
+    topicNameRequired: 'Name is required.',
+    topicNameAndSecretRequired: 'Name and Secret Text are required.',
   );
 
   static final AppStrings thai = AppStrings(
@@ -599,7 +697,7 @@ class AppStrings {
     clear: 'ล้าง',
     delete: 'ลบ',
     verifiedOffline:
-        'ปลอดภัย 100% ไม่ใช้อินเทอร์เน็ต • SQLCIPHER 4 + RUST FFI',
+        'ปลอดภัย 100% ไม่ใช้อินเทอร์เน็ต • AES-256-GCM + ARGON2ID',
     zeroKnowledgeSecurity: 'ความปลอดภัย Zero-Knowledge',
     aes256Argon2id: 'AES-256-GCM • Argon2id KDF • ล้างหน่วยความจำทันที',
     masterPasswordLabel: 'รหัสผ่านหลัก (Master Password)',
@@ -739,12 +837,46 @@ class AppStrings {
     loadDemoDataConfirmContent:
         'ระบบจะเพิ่มรายการตัวอย่าง (เช่น บัตรทดลอง, รหัสผ่านตัวอย่าง) ลงในคลัง เพื่อให้คุณทดลองใช้งานฟังก์ชันต่างๆ ได้อย่างครบถ้วน',
     demoDataLoadedSnackbar: 'โหลดข้อมูลตัวอย่างสำเร็จ',
+    pinAndAutoLockSettings: 'ตั้งค่า PIN & ล็อกอัตโนมัติ',
+    autoLockTimeoutLabel: 'ระยะเวลาล็อกอัตโนมัติ',
+    autoLockTimeoutDesc: 'ล็อกอัตโนมัติด้วย PIN หรือ Logout เมื่อไม่ได้ใช้งาน',
+    inactivityTimeoutLabel: 'ระยะเวลาไม่ใช้งานในแอป (Inactivity)',
+    inactivityTimeoutDesc: 'ล็อกด้วย PIN เมื่อเปิดแอปค้างไว้แล้วไม่มีการสัมผัสหน้าจอ',
+    screenOffTimeoutLabel: 'ระยะเวลาพักหน้าจอ / สลับแอป (Screen Off)',
+    screenOffTimeoutDesc: 'ตัด Logout และล้างหน่วยความจำทันทีเมื่อพักหน้าจอเกินเวลาที่กำหนด',
+    timeoutImmediate: 'ทันที',
+    timeout1Min: '1 นาที',
+    timeout2Min: '2 นาที',
+    timeout3Min: '3 นาที',
+    timeout5Min: '5 นาที',
+    timeoutOff: 'ปิด (ไม่ล็อกอัตโนมัติ)',
+    quickPinTitle: 'รหัส PIN ปลดล็อกด่วน',
+    quickPinActive: 'เปิดใช้งานรหัส PIN แล้ว',
+    quickPinNotSet: 'ยังไม่ได้ตั้งค่ารหัส PIN',
+    setPinBtn: 'ตั้งรหัส PIN',
+    changePinBtn: 'เปลี่ยนรหัส PIN',
+    removePinBtn: 'ลบรหัส PIN',
+    pinSavedSnackbar: 'บันทึกรหัส PIN เรียบร้อยแล้ว',
+    pinRemovedSnackbar: 'ลบรหัส PIN เรียบร้อยแล้ว',
+    enterPinPrompt: 'กดรหัส PIN 4-8 หลักบนแป้นสุ่ม',
+    autoLockInfoNotice:
+        'เมื่อพักหน้าจอจะล็อกด้วย PIN ชั่วคราว และหากทิ้งไว้นานเกินเวลา ระบบจะ Logout ตัดสิทธิ์และล้างหน่วยความจำทันที',
     confirmMasterPasswordLabel: 'ยืนยันรหัสผ่านหลัก (Confirm Master Password)',
     passwordsDoNotMatch: 'รหัสผ่านหลักและรหัสผ่านยืนยันไม่ตรงกัน',
     emergencyKitAdvice:
         'คำเตือนสำคัญ: โปรดจดรหัสผ่านไว้ในสมุดหรือพื้นที่ปลอดภัยภายนอก (Emergency Sheet) ทันที',
     noBackdoorWarning:
         'ไม่มี Backdoor: แม้แต่ผู้ผลิตก็ไม่สามารถถอดรหัสหรือกู้คืนข้อมูลให้ท่านได้',
+    itemPasswordMinLength: 'รหัสผ่านรายการต้องมีอย่างน้อย 6 ตัวอักษร',
+    itemPasswordsDoNotMatch: 'รหัสผ่านรายการไม่ตรงกัน',
+    passwordHintRequired: 'จำเป็นต้องระบุคำใบ้รหัสผ่านสำหรับการล็อกพิเศษ',
+    incorrectItemPassword: 'รหัสผ่านรายการไม่ถูกต้อง',
+    incorrectPassword: 'รหัสผ่านไม่ถูกต้อง',
+    backupRestoredSuccess: 'กู้คืนข้อมูลสำรองเรียบร้อยแล้ว',
+    compromisedDeviceWarning:
+        'แจ้งเตือนความปลอดภัย: ตรวจพบ Root, Jailbreak หรือ Debugger บนอุปกรณ์นี้',
+    topicNameRequired: 'จำเป็นต้องระบุชื่อรายการ',
+    topicNameAndSecretRequired: 'จำเป็นต้องระบุชื่อและข้อมูลลับ',
   );
 }
 

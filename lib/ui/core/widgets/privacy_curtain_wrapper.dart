@@ -11,10 +11,27 @@ class PrivacyCurtainWrapper extends StatefulWidget {
     super.key,
     required this.child,
     required this.onBackgroundAutoLock,
+    this.onAppResumed,
   });
 
   final Widget child;
   final VoidCallback onBackgroundAutoLock;
+  final VoidCallback? onAppResumed;
+
+  static bool isIntentInteractionActive = false;
+  static DateTime? _intentInteractionStartTime;
+
+  /// Temporarily suppresses auto-lock while an external system Intent (such as FilePicker or Share Sheet) is open.
+  static void beginIntentInteraction() {
+    isIntentInteractionActive = true;
+    _intentInteractionStartTime = DateTime.now();
+  }
+
+  /// Restores standard auto-lock behavior once the external system Intent finishes.
+  static void endIntentInteraction() {
+    isIntentInteractionActive = false;
+    _intentInteractionStartTime = null;
+  }
 
   @override
   State<PrivacyCurtainWrapper> createState() => _PrivacyCurtainWrapperState();
@@ -45,9 +62,19 @@ class _PrivacyCurtainWrapperState extends State<PrivacyCurtainWrapper>
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         setState(() => _isMasked = true);
-        widget.onBackgroundAutoLock();
+        if (PrivacyCurtainWrapper.isIntentInteractionActive) {
+          final start = PrivacyCurtainWrapper._intentInteractionStartTime;
+          if (start != null &&
+              DateTime.now().difference(start).inMinutes >= 5) {
+            PrivacyCurtainWrapper.endIntentInteraction();
+            widget.onBackgroundAutoLock();
+          }
+        } else {
+          widget.onBackgroundAutoLock();
+        }
       case AppLifecycleState.resumed:
         setState(() => _isMasked = false);
+        widget.onAppResumed?.call();
     }
   }
 

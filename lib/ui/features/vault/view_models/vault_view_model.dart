@@ -151,11 +151,12 @@ class VaultViewModel extends ChangeNotifier {
   Future<void> updateItemPassword({
     required String itemUuid,
     required String currentItemPassword,
-  }) {
-    return _vaultRepository.updateItemPassword(
+  }) async {
+    await _vaultRepository.updateItemPassword(
       itemUuid: itemUuid,
       currentItemPassword: currentItemPassword,
     );
+    await loadVaultSummaries();
   }
 
   Future<void> setItemExtraLock({

@@ -137,7 +137,7 @@ void main() {
       expect(acknowledgedCalled, isTrue);
     });
 
-    testWidgets('Empty Vault renders clean state with Load Demo Data button and action',
+    testWidgets('Empty Vault renders clean zero-knowledge state without demo data button',
         (tester) async {
       tester.view.physicalSize = const Size(1080, 1920);
       tester.view.devicePixelRatio = 1.0;
@@ -148,10 +148,12 @@ void main() {
         rustFfiService: RustVaultFfiService(includeDemoData: false),
         osHardeningService: OsHardeningService(),
       );
-      await repo.setupDualSlotVault(
-        mainPassword: 'MyCleanPassword#1',
-        secondaryPassword: 'MyDecoyPin1234',
-      );
+      await tester.runAsync(() async {
+        await repo.setupDualSlotVault(
+          mainPassword: 'MyCleanPassword#1',
+          secondaryPassword: 'MyDecoyPin1234',
+        );
+      });
 
       final viewModel = VaultViewModel(vaultRepository: repo);
       await viewModel.loadVaultSummaries();
@@ -169,35 +171,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify Clean Vault Empty State
+      // Verify Clean Vault Empty State has NO demo data buttons
       expect(find.text('Your Vault is Empty'), findsOneWidget);
       expect(find.textContaining('Tap "New" above'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Load Demo Data'), findsOneWidget);
-
-      // Tap Load Demo Data button
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Load Demo Data'));
-      await tester.pumpAndSettle();
-
-      // Confirmation dialog appears
-      expect(find.text('Load Sample Demo Data?'), findsOneWidget);
-      final confirmBtn = find.widgetWithText(FilledButton, 'Load Demo Data');
-      expect(confirmBtn, findsOneWidget);
-
-      await tester.tap(confirmBtn);
-      // Wait for Isolate.run Argon2id derivation to complete across threads
-      await tester.runAsync(() async {
-        final stopAt = DateTime.now().add(const Duration(seconds: 4));
-        while (viewModel.filteredItems.isEmpty &&
-            DateTime.now().isBefore(stopAt)) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }
-      });
-      await tester.pumpAndSettle();
-
-      // Dashboard now contains sample items!
-      expect(find.text('ProtonMail'), findsOneWidget);
-      expect(find.text('KBank Card'), findsOneWidget);
-      expect(find.text('Crypto Seed'), findsOneWidget);
+      expect(find.text('Load Demo Data'), findsNothing);
+      expect(find.text('Load Sample Demo Data?'), findsNothing);
     });
 
     testWidgets('LockScreenView on uninitialized vault shows Setup mode and Security Notice',
@@ -291,12 +269,6 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(saveBtn);
-      await tester.runAsync(() async {
-        final stopAt = DateTime.now().add(const Duration(seconds: 4));
-        while (!authVm.isVaultInitialized && DateTime.now().isBefore(stopAt)) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }
-      });
       await tester.pumpAndSettle();
 
       expect(authVm.isVaultInitialized, isTrue);

@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 import '../../domain/models/vault_models.dart';
 
 /// Stateless Service wrapping the Native OS Security & Hardening MethodChannel
-/// (`com.superxsecret.vault/hardening`) on Android and iOS.
+/// (`com.superxlab.superxsecret/hardening`) on Android and iOS.
 class OsHardeningService {
   OsHardeningService() {
     _channel.setMethodCallHandler(_handleNativeCallback);
   }
 
   static const MethodChannel _channel = MethodChannel(
-    'com.superxsecret.vault/hardening',
+    'com.superxlab.superxsecret/hardening',
   );
 
   VoidCallback? onNativeScreenOffLock;

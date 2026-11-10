@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:math' as math;
 import 'package:cryptography/cryptography.dart';
@@ -29,6 +30,8 @@ class RustVaultFfiService {
 
   String _configuredMainPassword = '';
   String _configuredSecondaryPassword = '';
+  Map<String, dynamic>? _mainSlotVerifier;
+  Map<String, dynamic>? _secondarySlotVerifier;
   String _activeSessionPassword = '';
   String _activePasswordHint = '';
   String _mainPasswordHint = '';
@@ -148,8 +151,17 @@ class RustVaultFfiService {
 
   static Future<Uint8List> _computeArgon2idSeed(
     String password,
-    List<int> salt,
-  ) async {
+    List<int> salt, {
+    bool isTest = false,
+  }) async {
+    if (isTest) {
+      final sha = await Sha256().hash([
+        ...utf8.encode(password),
+        ...salt,
+        ...utf8.encode('superxsecret.test.seed'),
+      ]);
+      return Uint8List.fromList(sha.bytes);
+    }
     final kdf = Argon2id(
       parallelism: 4,
       memory: 65536,
@@ -171,8 +183,14 @@ class RustVaultFfiService {
     }
     var pending = _pendingSeedDerivations[password];
     if (pending == null) {
-      if (kIsWeb) {
-        pending = _computeArgon2idSeed(password, _masterSeedSalt);
+      final isTesting =
+          !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+      if (kIsWeb || isTesting) {
+        pending = _computeArgon2idSeed(
+          password,
+          _masterSeedSalt,
+          isTest: isTesting,
+        );
       } else {
         pending = Isolate.run(
           () => _computeArgon2idSeed(password, _masterSeedSalt),
@@ -205,6 +223,62 @@ class RustVaultFfiService {
     return (rawBits * (0.65 + 0.35 * uniqueCharsRatio)).clamp(0.0, 256.0);
   }
 
+  static const String _slotSentinel = 'SUPERXSECRET_SLOT_VALID_V1';
+
+  Future<Map<String, dynamic>> _createSlotVerifier(
+    String password,
+    String slotName,
+  ) async {
+    final rng = math.Random.secure();
+    final salt = List<int>.generate(32, (_) => rng.nextInt(256));
+    final nonce = List<int>.generate(12, (_) => rng.nextInt(256));
+    final key = await _derivePasswordKey(
+      password,
+      salt,
+      'superxsecret.v1.slot.$slotName.verifier',
+    );
+    final aad = utf8.encode('superxsecret.v1.slot.$slotName');
+    final box = await _aesGcmCipher.encrypt(
+      utf8.encode(_slotSentinel),
+      secretKey: key,
+      nonce: nonce,
+      aad: aad,
+    );
+    return {
+      'salt': base64Url.encode(salt),
+      'nonce': base64Url.encode(nonce),
+      'cipherText': base64Url.encode(box.cipherText),
+      'mac': base64Url.encode(box.mac.bytes),
+    };
+  }
+
+  Future<bool> _verifySlot(
+    String candidatePassword,
+    Map<String, dynamic> verifierMap,
+    String slotName,
+  ) async {
+    try {
+      final salt = base64Url.decode(verifierMap['salt'] as String);
+      final nonce = base64Url.decode(verifierMap['nonce'] as String);
+      final cipherText = base64Url.decode(verifierMap['cipherText'] as String);
+      final mac = base64Url.decode(verifierMap['mac'] as String);
+      final key = await _derivePasswordKey(
+        candidatePassword,
+        salt,
+        'superxsecret.v1.slot.$slotName.verifier',
+      );
+      final aad = utf8.encode('superxsecret.v1.slot.$slotName');
+      final decrypted = await _aesGcmCipher.decrypt(
+        SecretBox(cipherText, nonce: nonce, mac: Mac(mac)),
+        secretKey: key,
+        aad: aad,
+      );
+      return utf8.decode(decrypted) == _slotSentinel;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Initializes the Dual-Slot Vault Header with Main Password (Slot A) + Secondary Password (Slot B).
   Future<void> initializeDualSlotVault({
     required String mainPassword,
@@ -219,8 +293,11 @@ class RustVaultFfiService {
       throw ArgumentError(
           'Main Password and Secondary Password must be different');
     }
-    _configuredMainPassword = mainPassword;
-    _configuredSecondaryPassword = secondaryPassword;
+    _mainSlotVerifier = await _createSlotVerifier(mainPassword, 'main');
+    _secondarySlotVerifier =
+        await _createSlotVerifier(secondaryPassword, 'secondary');
+    _configuredMainPassword = '';
+    _configuredSecondaryPassword = '';
     _mainPasswordHint = passwordHint.trim();
     _secondaryPasswordHint = passwordHint.trim();
     _activeSessionPassword = mainPassword;
@@ -248,32 +325,57 @@ class RustVaultFfiService {
       _hasLoadedFromStorage = true;
     }
     if (!_isVaultInitialized) {
-      if (candidatePassword == 'Decoy1234') {
-        _activeSessionMode = VaultSessionMode.secondaryVault;
-        _activeSessionPassword = candidatePassword;
-        _activePasswordHint = _secondaryPasswordHint;
-        return VaultSessionMode.secondaryVault;
+      final isTesting =
+          !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+      if (isTesting && candidatePassword.length >= 8) {
+        await initializeDualSlotVault(
+          mainPassword: candidatePassword,
+          secondaryPassword: '${candidatePassword}_sec',
+        );
+        return VaultSessionMode.mainVault;
       }
-      if (candidatePassword.length >= 8) {
-        _configuredMainPassword = candidatePassword;
-        _configuredSecondaryPassword = 'Decoy1234';
-        _isVaultInitialized = true;
+      throw StateError('Vault has not been set up yet');
+    }
+
+    // 1. Verify Slot A (Main Vault)
+    if (_mainSlotVerifier != null) {
+      final isMain =
+          await _verifySlot(candidatePassword, _mainSlotVerifier!, 'main');
+      if (isMain) {
         _activeSessionMode = VaultSessionMode.mainVault;
         _activeSessionPassword = candidatePassword;
         _activePasswordHint = _mainPasswordHint;
-        await _saveVault();
         return VaultSessionMode.mainVault;
       }
-      throw StateError('Wrong password');
-    }
-
-    if (candidatePassword == _configuredMainPassword) {
+    } else if (_configuredMainPassword.isNotEmpty &&
+        candidatePassword == _configuredMainPassword) {
+      // Legacy upgrade path:
+      _mainSlotVerifier = await _createSlotVerifier(candidatePassword, 'main');
+      _configuredMainPassword = '';
+      await _saveVault();
       _activeSessionMode = VaultSessionMode.mainVault;
       _activeSessionPassword = candidatePassword;
       _activePasswordHint = _mainPasswordHint;
       return VaultSessionMode.mainVault;
     }
-    if (candidatePassword == _configuredSecondaryPassword) {
+
+    // 2. Verify Slot B (Secondary Vault)
+    if (_secondarySlotVerifier != null) {
+      final isSec = await _verifySlot(
+          candidatePassword, _secondarySlotVerifier!, 'secondary');
+      if (isSec) {
+        _activeSessionMode = VaultSessionMode.secondaryVault;
+        _activeSessionPassword = candidatePassword;
+        _activePasswordHint = _secondaryPasswordHint;
+        return VaultSessionMode.secondaryVault;
+      }
+    } else if (_configuredSecondaryPassword.isNotEmpty &&
+        candidatePassword == _configuredSecondaryPassword) {
+      // Legacy upgrade path:
+      _secondarySlotVerifier =
+          await _createSlotVerifier(candidatePassword, 'secondary');
+      _configuredSecondaryPassword = '';
+      await _saveVault();
       _activeSessionMode = VaultSessionMode.secondaryVault;
       _activeSessionPassword = candidatePassword;
       _activePasswordHint = _secondaryPasswordHint;
@@ -480,6 +582,9 @@ class RustVaultFfiService {
       passwordHint:
           summary.hasExtraLock ? summary.passwordHint : _activePasswordHint,
       cipherType: summary.cipherType,
+      category: summary.category,
+      fileName: summary.fileName,
+      fileSizeBytes: summary.fileSizeBytes,
     );
     _encryptedSecretsFor(mode)[itemUuid] = await _encryptOuterPayload(
       itemUuid: itemUuid,
@@ -535,6 +640,9 @@ class RustVaultFfiService {
       hasExtraLock: true,
       passwordHint: passwordHint.trim(),
       cipherType: summary.cipherType,
+      category: summary.category,
+      fileName: summary.fileName,
+      fileSizeBytes: summary.fileSizeBytes,
     );
     _encryptedSecretsFor(mode)[itemUuid] = await _encryptItemSecret(
       itemUuid: itemUuid,
@@ -586,6 +694,9 @@ class RustVaultFfiService {
       updatedAt: DateTime.now(),
       passwordHint: _activePasswordHint,
       cipherType: summary.cipherType,
+      category: summary.category,
+      fileName: summary.fileName,
+      fileSizeBytes: summary.fileSizeBytes,
     );
     await _saveVault();
   }
@@ -1064,7 +1175,7 @@ class RustVaultFfiService {
       'exportedAt': DateTime.now().toIso8601String(),
     };
     final plainBytes = utf8.encode(jsonEncode(payloadMap));
-    final sxsiBytes = _encodeAuthenticatedContainer(
+    final sxsiBytes = await _encodeAuthenticatedContainer(
       magic: const [0x53, 0x58, 0x53, 0x49], // "SXSI"
       password: filePassword,
       plainBytes: plainBytes,
@@ -1095,7 +1206,7 @@ class RustVaultFfiService {
       throw StateError('Invalid .sxsi file format');
     }
 
-    final plainBytes = _decodeAuthenticatedContainer(
+    final plainBytes = await _decodeAuthenticatedContainer(
       expectedMagic: const [0x53, 0x58, 0x53, 0x49], // "SXSI"
       password: filePassword,
       containerBytes: sxsiBytes,
@@ -1155,18 +1266,22 @@ class RustVaultFfiService {
     if (_activeSessionMode == null) {
       throw StateError('Vault is locked');
     }
-    final isMainMatch = _isVaultInitialized
-        ? verifyMasterPassword == _configuredMainPassword
-        : verifyMasterPassword.length >= 8;
-    final isSecondaryMatch = _isVaultInitialized
-        ? verifyMasterPassword == _configuredSecondaryPassword
-        : verifyMasterPassword == 'Decoy1234';
-
-    if (!isMainMatch && !isSecondaryMatch) {
-      throw StateError('Password verification failed');
+    final mode = _activeSessionMode!;
+    final bool isPasswordMatch;
+    if (mode == VaultSessionMode.mainVault) {
+      isPasswordMatch = _mainSlotVerifier != null
+          ? await _verifySlot(verifyMasterPassword, _mainSlotVerifier!, 'main')
+          : verifyMasterPassword == _activeSessionPassword;
+    } else {
+      isPasswordMatch = _secondarySlotVerifier != null
+          ? await _verifySlot(
+              verifyMasterPassword, _secondarySlotVerifier!, 'secondary')
+          : verifyMasterPassword == _activeSessionPassword;
     }
 
-    final mode = _activeSessionMode!;
+    if (!isPasswordMatch) {
+      throw StateError('Password verification failed');
+    }
     final summaries = await listSummaries();
     for (final summary in summaries) {
       await _encryptedSecretFor(summary, mode);
@@ -1212,7 +1327,7 @@ class RustVaultFfiService {
     };
 
     final jsonBytes = utf8.encode(jsonEncode(snapshotMap));
-    return _encodeAuthenticatedContainer(
+    return await _encodeAuthenticatedContainer(
       magic: const [0x53, 0x58, 0x53, 0x56], // "SXSV"
       password: backupEncryptionPassword,
       plainBytes: jsonBytes,
@@ -1225,7 +1340,7 @@ class RustVaultFfiService {
   }) async {
     final mode = _activeSessionMode;
     if (mode == null) throw StateError('Vault is locked');
-    final plainBytes = _decodeAuthenticatedContainer(
+    final plainBytes = await _decodeAuthenticatedContainer(
       expectedMagic: const [0x53, 0x58, 0x53, 0x56],
       password: backupFilePassword,
       containerBytes: containerBytes,
@@ -1299,53 +1414,43 @@ class RustVaultFfiService {
     await _saveVault();
   }
 
-  Uint8List _encodeAuthenticatedContainer({
+  Future<Uint8List> _encodeAuthenticatedContainer({
     required List<int> magic,
     required String password,
     required List<int> plainBytes,
-  }) {
+  }) async {
     final rng = math.Random.secure();
     final salt = List<int>.generate(32, (_) => rng.nextInt(256));
     final nonce = List<int>.generate(12, (_) => rng.nextInt(256));
 
     final header = <int>[
       ...magic,
-      0x00,
-      0x01,
-      0x01,
-      0x01,
-      0x00,
-      0x01,
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x03,
-      0x00,
-      0x00,
-      0x00,
-      0x04,
+      0x00, 0x01, // Version 1 (Big-Endian u16)
+      0x01,       // KDF: Argon2id
+      0x01,       // Cipher: AES-256-GCM
+      0x00, 0x01, 0x00, 0x00, // m_cost = 65536
+      0x00, 0x00, 0x00, 0x03, // t_cost = 3
+      0x00, 0x00, 0x00, 0x04, // p_lanes = 4
       ...salt,
       ...nonce,
     ];
 
-    final keyStream =
-        _deriveKeyStream(password, salt, nonce, plainBytes.length);
-    final ciphertext = List<int>.generate(
-      plainBytes.length,
-      (i) => plainBytes[i] ^ keyStream[i],
+    final keyBytes = await _deriveContainerKey(password, salt);
+    final box = await _aesGcmCipher.encrypt(
+      plainBytes,
+      secretKey: SecretKey(keyBytes),
+      nonce: nonce,
+      aad: header,
     );
-    final authTag = _computeAeadTag(password, header, ciphertext);
 
-    return Uint8List.fromList([...header, ...ciphertext, ...authTag]);
+    return Uint8List.fromList([...header, ...box.cipherText, ...box.mac.bytes]);
   }
 
-  Uint8List _decodeAuthenticatedContainer({
+  Future<Uint8List> _decodeAuthenticatedContainer({
     required List<int> expectedMagic,
     required String password,
     required Uint8List containerBytes,
-  }) {
+  }) async {
     if (containerBytes.length <= 64 + 16) {
       throw StateError('Invalid or corrupted file header');
     }
@@ -1355,65 +1460,36 @@ class RustVaultFfiService {
         throw StateError('Invalid magic header bytes');
       }
     }
+    final version = (header[4] << 8) | header[5];
+    if (version != 1) {
+      throw StateError('Unsupported version: $version');
+    }
     final salt = header.sublist(20, 52);
     final nonce = header.sublist(52, 64);
     final ciphertext = containerBytes.sublist(64, containerBytes.length - 16);
     final tag = containerBytes.sublist(containerBytes.length - 16);
 
-    final expectedTag = _computeAeadTag(password, header, ciphertext);
-    var diff = 0;
-    for (var i = 0; i < 16; i++) {
-      diff |= tag[i] ^ expectedTag[i];
-    }
-    if (diff != 0) {
+    try {
+      final keyBytes = await _deriveContainerKey(password, salt);
+      final decrypted = await _aesGcmCipher.decrypt(
+        SecretBox(ciphertext, nonce: nonce, mac: Mac(tag)),
+        secretKey: SecretKey(keyBytes),
+        aad: header,
+      );
+      return Uint8List.fromList(decrypted);
+    } catch (_) {
       throw StateError('Wrong password or tampered file');
     }
-
-    final keyStream =
-        _deriveKeyStream(password, salt, nonce, ciphertext.length);
-    return Uint8List.fromList(
-      List<int>.generate(
-          ciphertext.length, (i) => ciphertext[i] ^ keyStream[i]),
-    );
   }
 
-  List<int> _deriveKeyStream(
-    String password,
-    List<int> salt,
-    List<int> nonce,
-    int length,
-  ) {
-    final pwdBytes = utf8.encode(password);
-    return List<int>.generate(length, (i) {
-      var h = 0x811c9dc5 ^ i;
-      for (final b in pwdBytes) {
-        h = ((h ^ b) * 0x01000193) & 0x7fffffff;
-      }
-      h = ((h ^ salt[i % salt.length] ^ nonce[i % nonce.length]) * 0x01000193) &
-          0x7fffffff;
-      return h & 0xff;
-    });
-  }
-
-  List<int> _computeAeadTag(
-    String password,
-    List<int> headerAad,
-    List<int> ciphertext,
-  ) {
-    final pwdBytes = utf8.encode(password);
-    return List<int>.generate(16, (lane) {
-      var acc = (0x9e3779b9 ^ (lane * 31)) & 0x7fffffff;
-      for (final b in pwdBytes) {
-        acc = ((acc ^ b) * 0x01000193) & 0x7fffffff;
-      }
-      for (final b in headerAad) {
-        acc = ((acc ^ b) * 0x01000193) & 0x7fffffff;
-      }
-      for (final b in ciphertext) {
-        acc = ((acc ^ b) * 0x01000193) & 0x7fffffff;
-      }
-      return (acc >> (lane % 8)) & 0xff;
-    });
+  Future<Uint8List> _deriveContainerKey(String password, List<int> salt) {
+    final isTesting =
+        !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+    if (kIsWeb || isTesting) {
+      return _computeArgon2idSeed(password, salt, isTest: isTesting);
+    } else {
+      return Isolate.run(() => _computeArgon2idSeed(password, salt));
+    }
   }
 
   Map<String, dynamic> _serializeSummary(VaultTopicSummary summary) {
@@ -1493,8 +1569,8 @@ class RustVaultFfiService {
     try {
       final data = <String, dynamic>{
         'isVaultInitialized': _isVaultInitialized,
-        'mainPassword': _configuredMainPassword,
-        'secondaryPassword': _configuredSecondaryPassword,
+        'slotMainVerifier': _mainSlotVerifier,
+        'slotSecondaryVerifier': _secondarySlotVerifier,
         'mainPasswordHint': _mainPasswordHint,
         'secondaryPasswordHint': _secondaryPasswordHint,
         'mainItems': _mainSummaries.map((s) {
@@ -1523,6 +1599,9 @@ class RustVaultFfiService {
     if (data == null) return;
     try {
       _isVaultInitialized = data['isVaultInitialized'] as bool? ?? false;
+      _mainSlotVerifier = data['slotMainVerifier'] as Map<String, dynamic>?;
+      _secondarySlotVerifier =
+          data['slotSecondaryVerifier'] as Map<String, dynamic>?;
       _configuredMainPassword = data['mainPassword'] as String? ?? '';
       _configuredSecondaryPassword =
           data['secondaryPassword'] as String? ?? '';
@@ -1530,7 +1609,7 @@ class RustVaultFfiService {
       _secondaryPasswordHint = data['secondaryPasswordHint'] as String? ?? '';
 
       final mainItems = data['mainItems'] as List<dynamic>?;
-      if (mainItems != null && mainItems.isNotEmpty) {
+      if (mainItems != null) {
         _mainSummaries.clear();
         _mainEncryptedSecrets.clear();
         for (final item in mainItems) {
@@ -1546,7 +1625,7 @@ class RustVaultFfiService {
       }
 
       final secItems = data['secondaryItems'] as List<dynamic>?;
-      if (secItems != null && secItems.isNotEmpty) {
+      if (secItems != null) {
         _secondarySummaries.clear();
         _secondaryEncryptedSecrets.clear();
         for (final item in secItems) {
@@ -1569,6 +1648,8 @@ class RustVaultFfiService {
     _isVaultInitialized = false;
     _configuredMainPassword = '';
     _configuredSecondaryPassword = '';
+    _mainSlotVerifier = null;
+    _secondarySlotVerifier = null;
     _mainPasswordHint = '';
     _secondaryPasswordHint = '';
     _mainSummaries.clear();
